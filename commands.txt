@@ -1,0 +1,40 @@
+# 1. Start Hardhat node (in one terminal)
+npx hardhat node
+
+# 2. Deploy contracts (in another terminal)
+npx hardhat run scripts/deploy_factory.js --network localhost
+npx hardhat run scripts/create_auction.js --network localhost
+
+# 3. Run Rust tests
+cargo test test_create_auction_emits_created_event -- --nocapture
+cargo test test_registry_reads_created_auction -- --nocapture
+cargo test test_place_bid_updates_highest_bid -- --nocapture
+
+# 4. Run the new escrow test
+cargo test test_escrow_interactive -- --nocapture
+
+
+
+trust_rust_web
+cargo run -p trust_rust_web
+
+
+
+
+
+
+npm install
+
+
+
+rm -rf artifacts cache        # Clear old builds
+npx hardhat compile           # Compile contracts
+npx hardhat node              # Start local blockchain
+
+
+0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 account[0]
+
+0xa0ee7a142d267c1f36714e4a8f75612f20a79720 account[9]
+
+0xbcd4042de499d14e55001ccbb24a551f3b954096 account [10]
+
