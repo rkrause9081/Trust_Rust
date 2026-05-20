@@ -1,40 +1,3 @@
-/* create_auction.rs
- *
- * Purpose:
- *     On-chain auction creation through the AuctionFactory contract.
- *
- *     This module handles all transaction sending and event decoding
- *     related to deploying new auction instances from the factory.
- *
- *     It does NOT:
- *         - Handle HTTP requests
- *         - Manage provider connections (passed in from main.rs)
- *         - Load contract ABIs at runtime (sol!() macro handles this at compile time)
- *         - Manage application-level validation beyond transaction requirements
- *
- *     It is called by:
- *         main.rs / Axum handlers    (controller / orchestration layer)
- *
- * System Position:
- *
- *     Axum route handler / main.rs  (HTTP + orchestration layer)
- *         ↓
- *     create_auction.rs  ← THIS FILE (factory write transaction + event decode)
- *         ↓
- *     auction_loader.rs  (provider connection)
- *         ↓
- *     AuctionFactory.sol  (on-chain deployment contract)
- *         ↓
- *     SimpleAuction.sol  (deployed auction instance)
- *         ↓
- *     Hardhat / Ethereum node
- */
-/* create_auction.rs
- *
- * Purpose:
- *     On-chain auction creation through the AuctionFactory contract.
- */
-
 use alloy::{
     network::TransactionBuilder,
     primitives::{Address, U256},
@@ -43,14 +6,16 @@ use alloy::{
     sol,
     sol_types::{SolCall, SolEvent},
 };
+
 use eyre::{eyre, Result};
 
-// Define the AuctionFactory interface at compile time.
 sol! {
     function createAuction(
         uint256 biddingTimeSeconds,
         uint256 startingBid,
-        uint256 confirmationWindow
+        uint256 confirmationWindow,
+        string title,
+        string description
     ) external returns (address);
 
     event AuctionCreated(
@@ -83,14 +48,18 @@ pub async fn create_auction<P>(
     bidding_time_seconds: U256,
     starting_bid_wei: U256,
     confirmation_window: U256,
+    title: String,
+    description: String,
 ) -> Result<CreateAuctionResult>
 where
-    P: Provider + ?Sized,          // ← THIS LINE IS THE FIX
+    P: Provider + ?Sized,
 {
     let calldata = createAuctionCall {
         biddingTimeSeconds: bidding_time_seconds,
         startingBid: starting_bid_wei,
         confirmationWindow: confirmation_window,
+        title,
+        description,
     }
     .abi_encode();
 
@@ -99,7 +68,11 @@ where
         .with_to(factory_address)
         .with_input(calldata);
 
-    let receipt = provider.send_transaction(tx).await?.get_receipt().await?;
+    let receipt = provider
+        .send_transaction(tx)
+        .await?
+        .get_receipt()
+        .await?;
 
     for log in receipt.logs() {
         if let Ok(decoded) = AuctionCreated::decode_log(&log.inner) {
@@ -119,7 +92,7 @@ where
     }
 
     Err(eyre!(
-        "AuctionCreated event not found in AuctionFactory transaction receipt"
+        "AuctionCreated event not found in transaction receipt"
     ))
 }
 
@@ -129,9 +102,11 @@ pub async fn create_auction_with_default_confirmation<P>(
     seller: Address,
     bidding_time_seconds: U256,
     starting_bid_wei: U256,
+    title: String,
+    description: String,
 ) -> Result<CreateAuctionResult>
 where
-    P: Provider + ?Sized,          // ← THIS LINE IS THE FIX
+    P: Provider + ?Sized,
 {
     let default_confirmation_window = U256::from(259_200u64);
 
@@ -142,6 +117,8 @@ where
         bidding_time_seconds,
         starting_bid_wei,
         default_confirmation_window,
+        title,
+        description,
     )
     .await
 }
