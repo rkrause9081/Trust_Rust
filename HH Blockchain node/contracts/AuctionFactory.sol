@@ -24,14 +24,21 @@ contract AuctionFactory is AuctionRegistry {
     function createAuction(
         uint256 biddingTimeSeconds,
         uint256 startingBid,
-        uint256 confirmationWindow
+        uint256 confirmationWindow,
+        string memory title,
+        string memory description
     ) external returns (address) {
+        string memory imagePlaceholder = "COMING_SOON";
+
         SimpleAuction auction = new SimpleAuction(
             biddingTimeSeconds,
             msg.sender,
             startingBid,
             factoryAdmin,
-            confirmationWindow
+            confirmationWindow,
+            address(this),
+            title,
+            description
         );
 
         address auctionAddress = address(auction);
@@ -44,7 +51,10 @@ contract AuctionFactory is AuctionRegistry {
             auctionEndTime,
             startingBid,
             factoryAdmin,
-            confirmationWindow
+            confirmationWindow,
+            title,
+            description,
+            imagePlaceholder
         );
 
         emit AuctionCreated(
