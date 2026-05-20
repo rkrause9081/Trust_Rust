@@ -2,22 +2,22 @@
 pragma solidity ^0.8.20;
 
 abstract contract AuctionState {
-    // Auction Parameters
     address public seller;
     uint256 public endTime;
     uint256 public startingBid;
 
-    // Bid Tracking
+    string public title;
+    string public description;
+    string public imagePlaceholder;
+
     address public highestBidder;
     uint256 public highestBid;
+    uint256 public bidCount;
 
-    // Settlement
     bool public ended;
 
-    // Pending Withdrawals
     mapping(address => uint256) public pendingReturns;
 
-    // Escrow
     address public admin;
     uint256 public escrowAmount;
     uint256 public escrowReleaseTimeout;
@@ -26,7 +26,6 @@ abstract contract AuctionState {
     bool public escrowSettled;
     bool public refundFlagged;
 
-    // Events
     event HighestBidIncreased(address indexed bidder, uint256 amount);
     event AuctionEnded(address indexed winner, uint256 amount);
     event BuyerConfirmedReceipt(address indexed buyer, uint256 amount);
