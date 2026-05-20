@@ -4,17 +4,15 @@ pragma solidity ^0.8.20;
 import "./AuctionState.sol";
 
 abstract contract AuctionSettlement is AuctionState {
-
     function withdraw() external returns (bool) {
         uint256 amount = pendingReturns[msg.sender];
         require(amount > 0, "No funds to withdraw");
 
         pendingReturns[msg.sender] = 0;
 
-        if (!payable(msg.sender).send(amount)) {
-            pendingReturns[msg.sender] = amount;
-            return false;
-        }
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "Transfer failed");
+
         return true;
     }
 
