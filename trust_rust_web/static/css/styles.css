@@ -410,3 +410,149 @@ footer {
     text-align: center;
   }
 }
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(8, 11, 15, 0.86);
+  backdrop-filter: blur(12px);
+}
+
+.modal-backdrop.show {
+  display: flex;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(13, 17, 23, 0.98);
+  border: 1px solid var(--accent);
+  padding: 2rem;
+  position: relative;
+  box-shadow: 0 0 40px rgba(0, 229, 255, 0.18);
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.modal-address {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #05070a;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.modal-actions button {
+  flex: 1;
+}
+.auction-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auction-image-placeholder {
+  width: 100%;
+  height: 180px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(0,229,255,0.12),
+      rgba(0,229,255,0.03)
+    );
+
+  border: 1px dashed rgba(0,229,255,0.35);
+
+  color: var(--accent);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+}
+
+.auction-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: white;
+}
+
+.auction-address {
+  font-size: 0.7rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.auction-description {
+  color: var(--muted);
+  line-height: 1.5;
+  min-height: 3rem;
+}
+
+.auction-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.meta-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.meta-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.auction-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  padding-top: 1rem;
+
+  border-top: 1px solid rgba(255,255,255,0.06);
+
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.auction-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.auction-actions button {
+  flex: 1;
+}

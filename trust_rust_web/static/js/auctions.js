@@ -1,31 +1,99 @@
+// ====================== AUCTION HELPERS ======================
+
+function formatAddress(address) {
+    if (!address || typeof address !== "string") return "N/A";
+    return address.slice(0, 6) + "…" + address.slice(-4);
+}
+
+function weiToEthString(wei) {
+    try {
+        const value = BigInt(wei || "0");
+        const whole = value / 10n ** 18n;
+        const fraction = value % 10n ** 18n;
+
+        const fractionStr = fraction
+            .toString()
+            .padStart(18, "0")
+            .slice(0, 4);
+
+        return `${whole}.${fractionStr}`;
+    } catch {
+        return "0.0000";
+    }
+}
+
+function getAuctionAddress(auction) {
+    return auction.auction_address || auction.auctionAddress || "";
+}
+
+function getEndTime(auction) {
+    return Number(auction.end_time || auction.endTime || 0);
+}
+
+function getStartingBidWei(auction) {
+    return auction.starting_bid_wei || auction.startingBid || "0";
+}
+
+function getHighestBidWei(auction) {
+    return auction.highest_bid_wei || auction.highestBid || "0";
+}
+
+function populateBidDropdown(auctions) {
+    const select = document.getElementById("bidAuction");
+    if (!select) return;
+
+    select.innerHTML = `<option value="">Select an auction</option>`;
+
+    auctions.forEach((auction) => {
+        const address = getAuctionAddress(auction);
+        const option = document.createElement("option");
+
+        option.value = address;
+        option.textContent = `${formatAddress(address)} — Highest: ${weiToEthString(getHighestBidWei(auction))} ETH`;
+
+        select.appendChild(option);
+    });
+}
+
 // ====================== LOAD ACTIVE AUCTIONS ======================
+
 async function loadActiveAuctions() {
-    const grid = document.getElementById('auctionGrid');
+    const grid = document.getElementById("auctionGrid");
     if (!grid) return;
 
-    grid.innerHTML = '<p class="status-line">Loading auctions from blockchain...</p>';
+    grid.innerHTML = `<p class="status-line">Loading auctions from blockchain...</p>`;
 
     try {
-        const res = await fetch('/api/auctions', { credentials: 'include' });
+        const res = await fetch("/api/auctions", {
+            method: "GET",
+            credentials: "include",
+        });
 
-        if (!res.ok) {
-            const text = await res.text();
-            console.error(`[loadActiveAuctions] HTTP ${res.status}:`, text);
-            throw new Error(`Server error (${res.status})`);
+        const text = await res.text();
+        let data = {};
+
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch {
+            throw new Error(text || "Invalid server response");
         }
 
-        const data = await res.json();
-        console.log('Loaded auctions:', data);
+        if (!res.ok || data.success === false) {
+            throw new Error(data.message || data.error || text || `Server error (${res.status})`);
+        }
 
-        let auctions = data.auctions || [];
-
-        // Filter only active auctions
         const now = Math.floor(Date.now() / 1000);
-        auctions = auctions.filter(a => parseInt(a.end_time) > now);
+
+        let auctions = Array.isArray(data.auctions) ? data.auctions : [];
+
+        auctions = auctions.filter((auction) => {
+            const endTime = getEndTime(auction);
+            return endTime > now;
+        });
 
         populateBidDropdown(auctions);
 
-        grid.innerHTML = '';
+        grid.innerHTML = "";
 
         if (auctions.length === 0) {
             grid.innerHTML = `
@@ -39,62 +107,204 @@ async function loadActiveAuctions() {
             return;
         }
 
-        auctions.forEach(auction => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.style.cursor = 'pointer';
+auctions.forEach((auction) => {
+    const auctionAddress = getAuctionAddress(auction);
 
-            const shortAuction = auction.auction_address.slice(0, 6) + '…' + auction.auction_address.slice(-4);
-            const shortSeller  = auction.seller.slice(0, 6) + '…' + auction.seller.slice(-4);
-            
-            const startingEth = (parseFloat(auction.starting_bid_wei || "0") / 1e18).toFixed(4);
-            const highestWei = auction.highest_bid_wei || auction.starting_bid_wei || "0";
-            const highestEth = (parseFloat(highestWei) / 1e18).toFixed(4);
+    const seller = auction.seller || "";
+    const highestBidder = auction.highest_bidder || "";
 
-            const endTime = parseInt(auction.end_time);
-            const secondsLeft = endTime - now;
-            const days = Math.floor(secondsLeft / 86400);
-            const hours = Math.floor((secondsLeft % 86400) / 3600);
-            const timeLeftText = days > 0 ? `${days}d ${hours}h left` : `${hours}h left`;
+    const title =
+        auction.title ||
+        `Auction ${formatAddress(auctionAddress)}`;
 
-            card.innerHTML = `
-                <div class="card-title">Auction ${shortAuction}</div>
-                <div style="margin: 0.75rem 0; font-size: 0.9rem; line-height: 1.5;">
-                    <div><strong>Seller:</strong> ${shortSeller}</div>
-                    <div><strong>Starting Bid:</strong> ${startingEth} ETH</div>
-                    <div><strong>Highest Bid:</strong> <span style="color:#32ff9a; font-weight:600;">${highestEth} ETH</span></div>
-                    <div><strong>Time Left:</strong> <span style="color:#32ff9a; font-weight:600;">${timeLeftText}</span></div>
-                </div>
-                <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-                    <button class="btn-primary" style="flex:1;">Place Bid →</button>
-                    <button class="btn-secondary" style="flex:1;">Withdraw</button>
-                </div>
-            `;
+    const description =
+        auction.description ||
+        "No description provided.";
 
-            const placeBtn = card.querySelector('.btn-primary');
-            const withdrawBtn = card.querySelector('.btn-secondary');
+    const descriptionPreview =
+        description.length > 120
+            ? description.slice(0, 120) + "..."
+            : description;
 
-            placeBtn.onclick = (e) => {
-                e.stopImmediatePropagation();
-                const select = document.getElementById('bidAuction');
-                if (select) select.value = auction.auction_address;
-                document.getElementById('place-bid')?.scrollIntoView({ behavior: 'smooth' });
-            };
+    const startingEth =
+        weiToEthString(getStartingBidWei(auction));
 
-            withdrawBtn.onclick = (e) => {
-                e.stopImmediatePropagation();
-                if (confirm(`Withdraw pending funds from auction ${shortAuction}?`)) {
-                    handleWithdraw(auction.auction_address);
+    const highestWei =
+        getHighestBidWei(auction);
+
+    const highestEth =
+        weiToEthString(
+            highestWei === "0"
+                ? getStartingBidWei(auction)
+                : highestWei
+        );
+
+    const bidCount =
+        Number(auction.bid_count || 0);
+
+    const endTime = getEndTime(auction);
+
+    const secondsLeft =
+        Math.max(endTime - now, 0);
+
+    const days =
+        Math.floor(secondsLeft / 86400);
+
+    const hours =
+        Math.floor((secondsLeft % 86400) / 3600);
+
+    const minutes =
+        Math.floor((secondsLeft % 3600) / 60);
+
+    let timeLeftText = `${minutes}m left`;
+
+    if (days > 0) {
+        timeLeftText = `${days}d ${hours}h left`;
+    } else if (hours > 0) {
+        timeLeftText = `${hours}h ${minutes}m left`;
+    }
+
+    const createdAt =
+        Number(auction.created_at || 0);
+
+    const createdAgo =
+        Math.floor((now - createdAt) / 3600);
+
+    const card = document.createElement("div");
+
+    card.className = "card auction-card";
+
+    card.innerHTML = `
+        <div class="auction-image-placeholder">
+            IMAGE SUPPORT COMING SOON
+        </div>
+
+        <div class="auction-title">
+            ${title}
+        </div>
+
+        <div class="auction-address">
+            ${auctionAddress}
+        </div>
+
+        <div class="auction-description">
+            ${descriptionPreview}
+        </div>
+
+        <div class="auction-meta-grid">
+
+            <div>
+                <span class="meta-label">Highest Bid</span>
+                <span class="meta-value accent">
+                    ${highestEth} ETH
+                </span>
+            </div>
+
+            <div>
+                <span class="meta-label">Starting Bid</span>
+                <span class="meta-value">
+                    ${startingEth} ETH
+                </span>
+            </div>
+
+            <div>
+                <span class="meta-label">Bids</span>
+                <span class="meta-value">
+                    ${bidCount}
+                </span>
+            </div>
+
+            <div>
+                <span class="meta-label">Ends In</span>
+                <span class="meta-value ${
+                    secondsLeft < 3600
+                        ? "danger"
+                        : "success"
+                }">
+                    ${timeLeftText}
+                </span>
+            </div>
+
+        </div>
+
+        <div class="auction-footer">
+
+            <div class="auction-seller">
+                Seller:
+                ${formatAddress(seller)}
+            </div>
+
+            <div class="auction-leading">
+                Leading:
+                ${
+                    highestBidder ===
+                    "0x0000000000000000000000000000000000000000"
+                        ? "No bids yet"
+                        : formatAddress(highestBidder)
                 }
-            };
+            </div>
 
-            card.onclick = () => placeBtn.click();
+            <div class="auction-created">
+                Created ${createdAgo}h ago
+            </div>
 
-            grid.appendChild(card);
-        });
+        </div>
 
+        <div class="auction-actions">
+            <button
+                class="btn-primary place-bid-btn"
+                type="button"
+            >
+                Place Bid →
+            </button>
+
+            <button
+                class="btn-secondary withdraw-btn"
+                type="button"
+            >
+                Withdraw
+            </button>
+        </div>
+    `;
+
+    const placeBtn =
+        card.querySelector(".place-bid-btn");
+
+    const withdrawBtn =
+        card.querySelector(".withdraw-btn");
+
+    placeBtn.onclick = (e) => {
+        e.stopPropagation();
+
+        const select =
+            document.getElementById("bidAuction");
+
+        if (select) {
+            select.value = auctionAddress;
+        }
+
+        document
+            .getElementById("place-bid")
+            ?.scrollIntoView({
+                behavior: "smooth",
+            });
+    };
+
+    withdrawBtn.onclick = (e) => {
+        e.stopPropagation();
+
+        openWithdrawModal(auctionAddress);
+    };
+
+    grid.appendChild(card);
+});
     } catch (err) {
-        console.error('loadActiveAuctions failed:', err);
-        grid.innerHTML = `<div class="card"><p style="color:#ff4d6d; margin:0;">Error: ${err.message}</p></div>`;
+        console.error("loadActiveAuctions failed:", err);
+
+        grid.innerHTML = `
+            <div class="card">
+                <p style="color:#ff4d6d; margin:0;">Error: ${err.message}</p>
+            </div>
+        `;
     }
 }
