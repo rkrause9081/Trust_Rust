@@ -5,14 +5,13 @@
  *     On-chain auction registry read/query layer.
  */
 
- use alloy::{
+use alloy::{
     primitives::{Address, U256},
     providers::Provider,
     network::TransactionBuilder,
     rpc::types::TransactionRequest,
     sol,
     sol_types::SolCall,
-    
 };
 use eyre::Result;
 use serde::Serialize;
@@ -24,6 +23,8 @@ sol! {
         uint256 biddingTimeSeconds;
         uint256 endTime;
         uint256 startingBid;
+        address highestBidder;      // ← Added
+        uint256 highestBid;         // ← Added
         address admin;
         uint256 confirmationWindow;
         uint256 createdAt;
@@ -46,6 +47,8 @@ pub struct RegistryAuction {
     pub bidding_time_seconds: U256,
     pub end_time: U256,
     pub starting_bid_wei: U256,
+    pub highest_bidder: Address,      // ← Added
+    pub highest_bid_wei: U256,        // ← Added
     pub admin: Address,
     pub confirmation_window: U256,
     pub created_at: U256,
@@ -59,12 +62,16 @@ fn map_registry_item(item: AuctionRegistryItem) -> RegistryAuction {
         bidding_time_seconds: item.biddingTimeSeconds,
         end_time: item.endTime,
         starting_bid_wei: item.startingBid,
+        highest_bidder: item.highestBidder,
+        highest_bid_wei: item.highestBid,
         admin: item.admin,
         confirmation_window: item.confirmationWindow,
         created_at: item.createdAt,
         exists: item.exists,
     }
 }
+
+// ==================== VIEW FUNCTIONS ====================
 
 pub async fn get_auction_count<P>(provider: &P, factory_address: Address) -> Result<U256>
 where P: Provider + ?Sized,
@@ -84,7 +91,11 @@ where P: Provider + ?Sized,
     Ok(getAuctionsCall::abi_decode_returns(&response)?)
 }
 
-pub async fn get_auction_registry_item<P>(provider: &P, factory_address: Address, auction_address: Address) -> Result<RegistryAuction>
+pub async fn get_auction_registry_item<P>(
+    provider: &P,
+    factory_address: Address,
+    auction_address: Address,
+) -> Result<RegistryAuction>
 where P: Provider + ?Sized,
 {
     let calldata = getAuctionRegistryItemCall { auctionAddress: auction_address }.abi_encode();
@@ -94,7 +105,11 @@ where P: Provider + ?Sized,
     Ok(map_registry_item(item))
 }
 
-pub async fn get_auction_by_index<P>(provider: &P, factory_address: Address, index: U256) -> Result<RegistryAuction>
+pub async fn get_auction_by_index<P>(
+    provider: &P,
+    factory_address: Address,
+    index: U256,
+) -> Result<RegistryAuction>
 where P: Provider + ?Sized,
 {
     let calldata = getAuctionByIndexCall { index }.abi_encode();
@@ -104,7 +119,12 @@ where P: Provider + ?Sized,
     Ok(map_registry_item(item))
 }
 
-pub async fn get_auctions_paginated<P>(provider: &P, factory_address: Address, offset: U256, limit: U256) -> Result<Vec<RegistryAuction>>
+pub async fn get_auctions_paginated<P>(
+    provider: &P,
+    factory_address: Address,
+    offset: U256,
+    limit: U256,
+) -> Result<Vec<RegistryAuction>>
 where P: Provider + ?Sized,
 {
     let calldata = getAuctionsPaginatedCall { offset, limit }.abi_encode();
@@ -114,7 +134,11 @@ where P: Provider + ?Sized,
     Ok(items.into_iter().map(map_registry_item).collect())
 }
 
-pub async fn get_auctions_by_seller<P>(provider: &P, factory_address: Address, seller: Address) -> Result<Vec<Address>>
+pub async fn get_auctions_by_seller<P>(
+    provider: &P,
+    factory_address: Address,
+    seller: Address,
+) -> Result<Vec<Address>>
 where P: Provider + ?Sized,
 {
     let calldata = getAuctionsBySellerCall { seller }.abi_encode();
@@ -123,8 +147,12 @@ where P: Provider + ?Sized,
     Ok(getAuctionsBySellerCall::abi_decode_returns(&response)?)
 }
 
-pub async fn is_registered_auction<P>(provider: &P, factory_address: Address, auction_address: Address) -> Result<bool>
-where P: Provider + ?Sized, 
+pub async fn is_registered_auction<P>(
+    provider: &P,
+    factory_address: Address,
+    auction_address: Address,
+) -> Result<bool>
+where P: Provider + ?Sized,
 {
     let calldata = isRegisteredAuctionCall { auctionAddress: auction_address }.abi_encode();
     let tx = TransactionRequest::default().with_to(factory_address).with_input(calldata);
