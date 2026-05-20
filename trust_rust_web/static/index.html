@@ -3,20 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>T.R.U.S.T Auction Protocol</title>
 
-  <!-- External CSS -->
   <link rel="stylesheet" href="/css/styles.css" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap"
+    rel="stylesheet"
+  >
 </head>
 
 <body>
   <div class="cursor-glow" id="cursorGlow"></div>
 
+  <!-- ====================== NAVIGATION ====================== -->
+
   <nav>
-    <a class="nav-logo" href="#"><span>//</span> T.R.U.S.T</a>
+    <a class="nav-logo" href="#">
+      <span>//</span> T.R.U.S.T
+    </a>
 
     <ul class="nav-links">
       <li class="nav-landing-link"><a href="#features">Features</a></li>
@@ -28,83 +36,41 @@
       <li class="nav-app-link"><a href="#create-auction">Create Auction</a></li>
     </ul>
 
-    <button class="nav-cta" id="loginBtn" onclick="siweLogin()">Sign In</button>
-    <button class="nav-cta wallet-pill" id="walletPill" style="display:none;"></button>
-    <button class="nav-cta" id="logoutBtn" onclick="logout()">Logout</button>
+    <button
+      class="nav-cta"
+      id="loginBtn"
+      onclick="siweLogin()"
+    >
+      Sign In
+    </button>
+
+    <button
+      class="nav-cta wallet-pill"
+      id="walletPill"
+      style="display:none;"
+    ></button>
+
+    <button
+      class="nav-cta"
+      id="logoutBtn"
+      onclick="logout()"
+    >
+      Logout
+    </button>
   </nav>
 
+  <!-- ====================== LANDING ====================== -->
+
   <main class="landing-shell">
-    <section class="hero" id="home">
-      <div class="hero-tag">Decentralized Auction Infrastructure</div>
-
-      <h1 class="hero-title">
-        On-Chain<br>
-        <span class="accent">Auctions.</span><br>
-        <span class="dim">Built Secure</span>
-      </h1>
-
-      <p class="hero-sub">
-        high-throughput bidding protocol built on Rust + Alloy.<br>
-        Sign in with Ethereum to view auctions, place bids, and create auctions.
-      </p>
-
-      <div class="hero-actions">
-        <a class="btn-primary" href="javascript:void(0)" onclick="siweLogin()">Sign In with Ethereum</a>
-        <a class="btn-ghost" href="#features">Read the DOCS</a>
-      </div>
-    </section>
-
-    <div class="ticker">
-      <div class="ticker-inner">
-        <span class="ticker-item"><span>▲</span> Highest Bid — WIP
-
-</span>
-        <span class="ticker-item"><span>▲</span> Network — Local Hardhat node</span>
-        <span class="ticker-item"><span>◆</span> Status — Operational</span>
-        <span class="ticker-item"><span>◆</span> Active Auctions — WIP</span>
-        <span class="ticker-item"><span>▲</span> Network — Local Hardhat node </span>
-        <span class="ticker-item"><span>◆</span> Status — Operational</span>
-      </div>
-    </div>
-
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value">WIP<span class="unit">WIP</span></div>
-        <div class="stat-label">IDK what to put here</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">WIP<span class="unit">Live</span></div>
-        <div class="stat-label">Active Auctions (WIP)</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">&lt;1<span class="unit">ms</span></div>
-        <div class="stat-label">SOMETHING HERE</div>
-      </div>
-    </div>
-
-    <section class="features" id="features">
-      <div class="section-label">Core Tech Stack</div>
-
-      <div class="grid grid-3">
-        <div class="card">
-          <div class="card-title">Rust-Powered Backend</div>
-          <p class="card-desc">BLAH BLAH BLAH</p>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Trustless Settlement</div>
-          <p class="card-desc">BLAH BLAH BLAH</p>
-        </div>
-
-        <div class="card">
-          <div class="card-title">One-Page App</div>
-          <p class="card-desc">Insert lame corpo talk</p>
-        </div>
-      </div>
-    </section>
+    <!-- Keep your landing content here -->
   </main>
 
+  <!-- ====================== APP ====================== -->
+
   <main class="app-shell">
+
+    <!-- ====================== DASHBOARD ====================== -->
+
     <section class="app-section" id="dashboard">
       <div class="section-label">Auction Dashboard</div>
 
@@ -112,10 +78,6 @@
         Welcome,<br>
         <span class="accent" id="walletHeading">bidder.</span>
       </h1>
-
-      <p class="hero-sub">
-        // Signed in with Ethereum. Mock auction data loaded.
-      </p>
 
       <div class="grid grid-3">
         <div class="card">
@@ -130,35 +92,53 @@
 
         <div class="card">
           <div class="stat-value" id="createdCount">0</div>
-          <div class="stat-label">Auctions Created This Session</div>
+          <div class="stat-label">Auctions Created</div>
         </div>
       </div>
     </section>
 
+    <!-- ====================== ACTIVE AUCTIONS ====================== -->
+
     <section class="app-section" id="active-auctions">
       <div class="section-label">Active Auctions</div>
+
       <div class="grid grid-3" id="auctionGrid"></div>
     </section>
+
+    <!-- ====================== PLACE BID ====================== -->
 
     <section class="app-section" id="place-bid">
       <div class="section-label">Place Bid</div>
 
       <div class="grid grid-2">
+
         <div class="card">
           <h2 class="card-title">Submit Bid</h2>
 
           <form id="bidForm">
+
             <div class="form-group">
               <label for="bidAuction">Auction</label>
+
               <select id="bidAuction" required></select>
             </div>
 
             <div class="form-group">
               <label for="bidAmount">Bid Amount ETH</label>
-              <input id="bidAmount" type="number" step="0.01" min="0" placeholder="Example: 2.50" required />
+
+              <input
+                id="bidAmount"
+                type="number"
+                step="0.0001"
+                min="0"
+                placeholder="Example: 2.50"
+                required
+              />
             </div>
 
-            <button type="submit">Place Bid</button>
+            <button type="submit">
+              Place Bid
+            </button>
           </form>
 
           <p class="status-line" id="bidStatus"></p>
@@ -166,63 +146,70 @@
 
         <div class="card">
           <h2 class="card-title">Bid Rules</h2>
+
           <p class="card-desc">
-            // Bid must be higher than the current highest bid.<br>
-            // This is front-end mock logic only.<br>
-            // Later: call your backend route or contract method here.
+            • Bid must be higher than current highest bid.<br>
+            • Outbid users must manually withdraw funds.<br>
+            • Withdrawals happen directly on-chain.
           </p>
         </div>
+
       </div>
     </section>
 
-<section class="app-section" id="create-auction">
-  <div class="section-label">Create Auction</div>
+    <!-- ====================== CREATE AUCTION ====================== -->
 
-  <div class="card">
-    <form id="createAuctionForm">
-      <div class="grid grid-2">
-        <div class="form-group">
-          <label for="auctionTitle">Auction Title</label>
-          <input id="auctionTitle" type="text" placeholder="Cyber Katana #404" required />
-        </div>
+    <section class="app-section" id="create-auction">
 
-        <div class="form-group">
-          <label for="startingBid">Starting Bid ETH</label>
-          <input id="startingBid" type="number" step="0.0001" min="0" placeholder="0.25" required />
-        </div>
-      </div>
+      <div class="section-label">Create Auction</div>
 
-      <div class="grid grid-2">
-        <div class="form-group">
-          <label for="endDate">Auction End Date</label>
-          <input id="endDate" type="datetime-local" required />
-        </div>
+      <div class="card">
 
-        <div class="form-group">
-          <label for="assetType">Asset Type</label>
-          <select id="assetType" required>
-            <option value="NFT">NFT</option>
-            <option value="ERC-20 Lot">ERC-20 Lot</option>
-            <option value="Physical Asset">Physical Asset</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-      </div>
+        <form id="createAuctionForm">
 
-      <div class="form-group">
-        <label for="auctionDescription">Description</label>
-        <textarea id="auctionDescription" rows="4" placeholder="Describe what is being auctioned..." required></textarea>
-      </div>
+          <div class="grid grid-2">
 
-      <button type="submit">🚀 Create Auction on Blockchain</button>
-    </form>
+            <div class="form-group">
+              <label for="auctionTitle">Auction Title</label>
 
-    <p class="status-line" id="createStatus"></p>
-  </div>
-</section>
+              <input
+                id="auctionTitle"
+                type="text"
+                placeholder="Cyber Katana #404"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="startingBid">Starting Bid ETH</label>
+
+              <input
+                id="startingBid"
+                type="number"
+                step="0.0001"
+                min="0"
+                placeholder="0.00"
+                required
+              />
+            </div>
+
+          </div>
+
+          <div class="grid grid-2">
+
+            <div class="form-group">
+              <label for="endDate">Auction End Date</label>
+
+              <input
+                id="endDate"
+                type="datetime-local"
+                required
+              />
+            </div>
 
             <div class="form-group">
               <label for="assetType">Asset Type</label>
+
               <select id="assetType" required>
                 <option value="NFT">NFT</option>
                 <option value="ERC-20 Lot">ERC-20 Lot</option>
@@ -230,26 +217,114 @@
                 <option value="Other">Other</option>
               </select>
             </div>
+
           </div>
 
           <div class="form-group">
-            <label for="auctionDescription">Description</label>
-            <textarea id="auctionDescription" rows="4" placeholder="Describe what is being auctioned..." required></textarea>
+
+            <label for="auctionDescription">
+              Description
+            </label>
+
+            <textarea
+              id="auctionDescription"
+              rows="4"
+              placeholder="Describe what is being auctioned..."
+              required
+            ></textarea>
+
           </div>
 
-          <button type="submit">Create Mock Auction</button>
+          <button type="submit">
+            🚀 Create Auction on Blockchain
+          </button>
+
         </form>
 
         <p class="status-line" id="createStatus"></p>
       </div>
     </section>
+
   </main>
+
+  <!-- ====================== WITHDRAW MODAL ====================== -->
+
+  <div
+    class="modal-backdrop"
+    id="withdrawModal"
+    aria-hidden="true"
+  >
+    <div class="modal-card">
+
+      <button
+        class="modal-close"
+        type="button"
+        onclick="closeWithdrawModal()"
+      >
+        ×
+      </button>
+
+      <div class="section-label">
+        Withdraw Funds
+      </div>
+
+      <h2 class="card-title">
+        Confirm Withdrawal
+      </h2>
+
+      <p class="card-desc">
+        You are about to withdraw pending funds from:
+      </p>
+
+      <div
+        class="modal-address"
+        id="withdrawAuctionAddress"
+      >
+        0x...
+      </div>
+
+      <p
+        class="status-line"
+        id="withdrawStatus"
+      ></p>
+
+      <div class="modal-actions">
+
+        <button
+          class="btn-ghost"
+          type="button"
+          onclick="closeWithdrawModal()"
+        >
+          Cancel
+        </button>
+
+        <button
+          class="btn-primary"
+          type="button"
+          onclick="confirmWithdraw()"
+        >
+          Withdraw
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================== FOOTER ====================== -->
 
   <footer>
     <div>// T.R.U.S.T</div>
-    <div>© 2026 — Mock auction UI ready for contract wiring</div>
+    <div>© 2026 — Rust + Alloy Auction Protocol</div>
   </footer>
 
-  <script src="/js/app.js?v=101"></script>
+  <!-- ====================== SCRIPTS ====================== -->
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/auctions.js"></script>
+  <script src="/js/bidding.js"></script>
+  <script src="/js/withdraw.js"></script>
+  <script src="/js/main.js"></script>
+
 </body>
 </html>

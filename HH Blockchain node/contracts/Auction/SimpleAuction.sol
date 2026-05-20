@@ -1,63 +1,62 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./AuctionBidding.sol";
+import "./AuctionState.sol";
 import "./AuctionSettlement.sol";
 import "./AuctionEscrow.sol";
 
-/**
- * SimpleAuction.sol
- *
- * Purpose:
- *     Top-level auction contract. Acts as the orchestrator, wiring together
- *     all auction modules via inheritance.
- *
- *     This contract does NOT:
- *         - Contain bid, settlement, or escrow logic directly
- *         - Define state variables directly (via AuctionState)
- *
- *     It inherits from:
- *         AuctionBidding    → bid()
- *         AuctionSettlement → withdraw(), endAuction()
- *         AuctionEscrow     → confirmReceipt(), claimAfterTimeout(), flagRefund()
- *         AuctionState      → all state variables and events
- *                             (inherited transitively)
- *
- * System Position:
- *
- *     AuctionFactory.sol  (deployment)
- *         ↓
- *     SimpleAuction.sol  ← THIS FILE (orchestrator)
- *         ↓
- *     AuctionBidding.sol / AuctionSettlement.sol / AuctionEscrow.sol
- *         ↓
- *     AuctionState.sol  (shared storage)
- *
- * Equivalent to:
- *     mainauction.py on the Python side
- */
+interface IAuctionRegistry {
+    function updateHighestBid(
+        address auctionAddress,
+        address bidder,
+        uint256 newBidAmount
+    ) external;
+}
 
-contract SimpleAuction is AuctionBidding, AuctionSettlement, AuctionEscrow {
+contract SimpleAuction is AuctionState, AuctionSettlement, AuctionEscrow {
+    address public immutable registry;
 
-    /**
-     * @param _biddingTimeSeconds   How long the auction runs (in seconds)
-     * @param _seller               Address of the seller
-     * @param _startingBid          Minimum bid amount (in wei)
-     * @param _admin                Address of the admin (can trip emergency refund flag)
-     * @param _confirmationWindow   How long (in seconds) the buyer has to confirm receipt
-     *                              after the auction ends before the seller can claim timeout
-     */
     constructor(
         uint256 _biddingTimeSeconds,
         address _seller,
         uint256 _startingBid,
         address _admin,
-        uint256 _confirmationWindow
+        uint256 _confirmationWindow,
+        address _registry,
+        string memory _title,
+        string memory _description
     ) {
         seller = _seller;
         endTime = block.timestamp + _biddingTimeSeconds;
         startingBid = _startingBid;
         admin = _admin;
         confirmationWindow = _confirmationWindow;
+        registry = _registry;
+
+        title = _title;
+        description = _description;
+        imagePlaceholder = "COMING_SOON";
+    }
+
+    function bid() external payable {
+        require(block.timestamp < endTime, "Auction already ended");
+        require(msg.value >= startingBid, "Bid below starting bid");
+        require(msg.value > highestBid, "Bid not high enough");
+
+        if (highestBid != 0) {
+            pendingReturns[highestBidder] += highestBid;
+        }
+
+        highestBidder = msg.sender;
+        highestBid = msg.value;
+        bidCount += 1;
+
+        IAuctionRegistry(registry).updateHighestBid(
+            address(this),
+            msg.sender,
+            msg.value
+        );
+
+        emit HighestBidIncreased(msg.sender, msg.value);
     }
 }

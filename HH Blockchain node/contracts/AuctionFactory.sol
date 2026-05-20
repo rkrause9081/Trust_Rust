@@ -1,34 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
-/**
- * AuctionFactory.sol
- *
- * Purpose:
- *     Responsible for deploying new auction contracts.
- *
- *     This contract:
- *         - Deploys SimpleAuction instances
- *         - Registers auctions into AuctionRegistry
- *         - Emits deployment events
- *
- *     This contract does NOT:
- *         - Handle bidding logic
- *         - Store auction settlement logic
- *         - Store registry query logic
- *
- * System Position:
- *
- *     AuctionFactory.sol  ← THIS FILE (deployment layer)
- *         ↓
- *     AuctionRegistry.sol  (registry/query layer)
- *         ↓
- *     SimpleAuction.sol  (auction instances)
- *
- * Equivalent to:
- *     factory.rs on the Rust backend side
- */
 
-import "../Auction/SimpleAuction.sol";
+import "./Auction/SimpleAuction.sol";
 import "./AuctionRegistry.sol";
 
 contract AuctionFactory is AuctionRegistry {
@@ -51,14 +24,21 @@ contract AuctionFactory is AuctionRegistry {
     function createAuction(
         uint256 biddingTimeSeconds,
         uint256 startingBid,
-        uint256 confirmationWindow
+        uint256 confirmationWindow,
+        string memory title,
+        string memory description
     ) external returns (address) {
+        string memory imagePlaceholder = "COMING_SOON";
+
         SimpleAuction auction = new SimpleAuction(
             biddingTimeSeconds,
             msg.sender,
             startingBid,
             factoryAdmin,
-            confirmationWindow
+            confirmationWindow,
+            address(this),
+            title,
+            description
         );
 
         address auctionAddress = address(auction);
@@ -71,7 +51,10 @@ contract AuctionFactory is AuctionRegistry {
             auctionEndTime,
             startingBid,
             factoryAdmin,
-            confirmationWindow
+            confirmationWindow,
+            title,
+            description,
+            imagePlaceholder
         );
 
         emit AuctionCreated(

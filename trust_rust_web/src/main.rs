@@ -15,6 +15,7 @@ use auth::{get_nonce, verify_siwe};
 use routes::auction::create_auction_handler;
 use routes::auction_list::list_auctions;
 use routes::bidding::place_bid_handler;
+use routes::withdraw::withdraw_handler;
 use state::AppState;
 
 #[tokio::main]
@@ -37,6 +38,7 @@ async fn main() {
         .route("/api/create-auction", post(create_auction_handler))
         .route("/api/auctions", get(list_auctions))
         .route("/api/bid", post(place_bid_handler))
+        .route("/api/withdraw",post(withdraw_handler))
 
         // Serve frontend static files
         .fallback_service(ServeDir::new("static"))
