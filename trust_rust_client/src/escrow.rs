@@ -3,52 +3,19 @@
  *
  * Purpose:
  *     On-chain escrow operations for post-auction settlement.
- *
- *     This module handles all state-changing transactions and view calls
- *     related to the escrow lifecycle defined in AuctionEscrow.sol.
- *
- *     It does NOT:
- *         - Handle HTTP requests
- *         - Manage provider connections (passed in from main.rs)
- *         - Load contract ABIs at runtime (sol!() macro handles this at compile time)
- *         - Handle application-level business logic or validation
- *
- *     It is called by:
- *         main.rs / Axum handlers    (controller / orchestration layer)
- *
- * System Position:
- *
- *     Axum route handler / main.rs  (HTTP + orchestration layer)
- *         ↓
- *     escrow.rs  ← THIS FILE (escrow transactions + view calls)
- *         ↓
- *     auction_loader.rs  (provider connection)
- *         ↓
- *     SimpleAuction.sol (via AuctionEscrow inheritance)
- *         ↓
- *     Hardhat / Ethereum node
- *
- * Escrow Lifecycle:
- *     After endAuction() is called, one of three paths resolves the escrow:
- *
- *         1. Buyer calls confirmReceipt()     → funds sent to seller immediately
- *         2. Seller calls claimAfterTimeout() → funds sent to seller after window expires
- *         3. Admin calls flagRefund()         → funds queued in pendingReturns for winner
- *                                             (winner must call withdraw() to collect)
  */
 
 use alloy::{
     network::TransactionBuilder,
-    primitives::{Address, U256},   // ← Make sure U256 is here
+    primitives::{Address, U256},
     providers::Provider,
     rpc::types::TransactionRequest,
     sol,
     sol_types::SolCall,
 };
+
 use eyre::Result;
 
-// Define the AuctionEscrow interface at compile time.
-// The sol!() macro generates strongly typed Rust structs for each function.
 sol! {
     function confirmReceipt() external;
     function claimAfterTimeout() external;
@@ -56,51 +23,72 @@ sol! {
     function timeRemainingForConfirmation() external view returns (uint256);
     function endAuction() external;
     function withdraw() external;
+
+    function getEscrowStatus() external view returns (uint8);
+
+    function canConfirmReceipt(address caller)
+        external
+        view
+        returns (bool);
+
+    function canClaimTimeout(address caller)
+        external
+        view
+        returns (bool);
+
+    function canFlagRefund(address caller)
+        external
+        view
+        returns (bool);
 }
 
-/// Result returned after a successful `confirmReceipt()` call.
 #[derive(Debug)]
 pub struct ConfirmReceiptResult {
     pub tx_hash: String,
     pub escrow_settled: bool,
 }
 
-/// Result returned after a successful `claimAfterTimeout()` call.
 #[derive(Debug)]
 pub struct ClaimAfterTimeoutResult {
     pub tx_hash: String,
     pub escrow_settled: bool,
 }
 
-/// Result returned after a successful `flagRefund()` call.
 #[derive(Debug)]
 pub struct FlagRefundResult {
     pub tx_hash: String,
     pub refund_flagged: bool,
 }
 
-/// Confirm receipt of the item by the winning bidder.
-///
-/// Immediately releases escrowed funds to the seller.
-///
-/// Parameters:
-///     provider:         Active Alloy provider.
-///     contract_address: Address of the deployed SimpleAuction contract.
-///     bidder:           Address of the winning bidder (msg.sender).
-///
-/// Returns:
-///     ConfirmReceiptResult
-///
-/// Errors:
-///     Reverts if caller is not the winner, auction hasn't ended,
-///     or escrow is already settled.
+#[derive(Debug, Clone, Copy)]
+pub enum EscrowStatus {
+    ActiveAuction,
+    AwaitingFinalization,
+    AwaitingBuyerConfirmation,
+    Complete,
+    Refunded,
+}
+
+impl EscrowStatus {
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::ActiveAuction,
+            1 => Self::AwaitingFinalization,
+            2 => Self::AwaitingBuyerConfirmation,
+            3 => Self::Complete,
+            4 => Self::Refunded,
+            _ => Self::ActiveAuction,
+        }
+    }
+}
+
 pub async fn confirm_receipt<P>(
     provider: &P,
     contract_address: Address,
     bidder: Address,
 ) -> Result<ConfirmReceiptResult>
 where
-    P: Provider,
+    P: Provider + ?Sized,
 {
     let calldata = confirmReceiptCall {}.abi_encode();
 
@@ -117,28 +105,13 @@ where
     })
 }
 
-/// Claim funds after the buyer confirmation window has expired.
-///
-/// Called by the seller.
-///
-/// Parameters:
-///     provider:         Active Alloy provider.
-///     contract_address: Address of the deployed SimpleAuction contract.
-///     seller:           Address of the seller (msg.sender).
-///
-/// Returns:
-///     ClaimAfterTimeoutResult
-///
-/// Errors:
-///     Reverts if caller is not the seller, confirmation window hasn't expired,
-///     or escrow is already settled.
 pub async fn claim_after_timeout<P>(
     provider: &P,
     contract_address: Address,
     seller: Address,
 ) -> Result<ClaimAfterTimeoutResult>
 where
-    P: Provider,
+    P: Provider + ?Sized,
 {
     let calldata = claimAfterTimeoutCall {}.abi_encode();
 
@@ -155,29 +128,13 @@ where
     })
 }
 
-/// Flag a refund (called only by admin).
-///
-/// Queues funds in `pendingReturns` for the winner. The winner must still
-/// call `withdraw()` to collect the refund.
-///
-/// Parameters:
-///     provider:         Active Alloy provider.
-///     contract_address: Address of the deployed SimpleAuction contract.
-///     admin:            Address of the admin (msg.sender).
-///
-/// Returns:
-///     FlagRefundResult
-///
-/// Errors:
-///     Reverts if caller is not admin, auction hasn't ended,
-///     escrow is already settled, or no funds in escrow.
 pub async fn flag_refund<P>(
     provider: &P,
     contract_address: Address,
     admin: Address,
 ) -> Result<FlagRefundResult>
 where
-    P: Provider,
+    P: Provider + ?Sized,
 {
     let calldata = flagRefundCall {}.abi_encode();
 
@@ -194,18 +151,12 @@ where
     })
 }
 
-/// Get the remaining time (in seconds) for buyer confirmation.
-///
-/// Returns 0 if:
-///   - The confirmation window has expired
-///   - Escrow has already been settled
-///   - Auction has not yet ended
 pub async fn get_time_remaining_for_confirmation<P>(
     provider: &P,
     contract_address: Address,
 ) -> Result<u64>
 where
-    P: Provider,
+    P: Provider + ?Sized,
 {
     let calldata = timeRemainingForConfirmationCall {}.abi_encode();
 
@@ -215,24 +166,21 @@ where
 
     let response = provider.call(tx).await?;
 
-    let seconds_remaining: U256 = timeRemainingForConfirmationCall::abi_decode_returns(&response)?;
+    let seconds_remaining: U256 =
+        timeRemainingForConfirmationCall::abi_decode_returns(&response)?;
 
-    // Safe conversion from U256 to u64
     let seconds = seconds_remaining.try_into().unwrap_or(0u64);
 
     Ok(seconds)
 }
 
-/// End the auction (usually called by anyone after bidding time expires).
-///
-/// This moves the auction into a settled state so escrow functions can be called.
 pub async fn end_auction<P>(
     provider: &P,
     contract_address: Address,
     caller: Address,
 ) -> Result<String>
 where
-    P: Provider,
+    P: Provider + ?Sized,
 {
     let calldata = endAuctionCall {}.abi_encode();
 
@@ -244,4 +192,81 @@ where
     let receipt = provider.send_transaction(tx).await?.get_receipt().await?;
 
     Ok(format!("{:?}", receipt.transaction_hash))
+}
+
+pub async fn get_escrow_status<P>(
+    provider: &P,
+    contract_address: Address,
+) -> Result<EscrowStatus>
+where
+    P: Provider + ?Sized,
+{
+    let calldata = getEscrowStatusCall {}.abi_encode();
+
+    let tx = TransactionRequest::default()
+        .with_to(contract_address)
+        .with_input(calldata);
+
+    let response = provider.call(tx).await?;
+
+    let raw: u8 = getEscrowStatusCall::abi_decode_returns(&response)?;
+
+    Ok(EscrowStatus::from_u8(raw))
+}
+
+pub async fn can_confirm_receipt<P>(
+    provider: &P,
+    contract_address: Address,
+    caller: Address,
+) -> Result<bool>
+where
+    P: Provider + ?Sized,
+{
+    let calldata = canConfirmReceiptCall { caller }.abi_encode();
+
+    let tx = TransactionRequest::default()
+        .with_to(contract_address)
+        .with_input(calldata);
+
+    let response = provider.call(tx).await?;
+
+    Ok(canConfirmReceiptCall::abi_decode_returns(&response)?)
+}
+
+pub async fn can_claim_timeout<P>(
+    provider: &P,
+    contract_address: Address,
+    caller: Address,
+) -> Result<bool>
+where
+    P: Provider + ?Sized,
+{
+    let calldata = canClaimTimeoutCall { caller }.abi_encode();
+
+    let tx = TransactionRequest::default()
+        .with_to(contract_address)
+        .with_input(calldata);
+
+    let response = provider.call(tx).await?;
+
+    Ok(canClaimTimeoutCall::abi_decode_returns(&response)?)
+}
+
+pub async fn can_flag_refund<P>(
+    provider: &P,
+    contract_address: Address,
+    caller: Address,
+) -> Result<bool>
+where
+    P: Provider + ?Sized,
+{
+    let calldata = canFlagRefundCall { caller }.abi_encode();
+
+    let tx = TransactionRequest::default()
+        .with_to(contract_address)
+        .with_input(calldata);
+
+    let response = provider.call(tx).await?;
+
+    Ok(canFlagRefundCall::abi_decode_returns(&response)?)
 }

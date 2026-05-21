@@ -6,21 +6,32 @@ use axum::{
     routing::{get, post},
     Router,
 };
+
 use std::sync::Arc;
+
 use tower_http::services::ServeDir;
 use tower_livereload::LiveReloadLayer;
 use tower_cookies::CookieManagerLayer;
 
 use auth::{get_nonce, verify_siwe};
+
 use routes::auction::create_auction_handler;
 use routes::auction_list::list_auctions;
 use routes::bidding::place_bid_handler;
 use routes::withdraw::withdraw_handler;
+
+use routes::escrow::{
+    escrow_status_handler,
+    end_auction_handler,
+    confirm_receipt_handler,
+    claim_timeout_handler,
+    refund_handler,
+};
+
 use state::AppState;
 
 #[tokio::main]
 async fn main() {
-    // ←←← CHANGE THIS TO YOUR REAL AUCTION FACTORY ADDRESS ←←←
     let factory_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
     let state = Arc::new(
@@ -38,7 +49,29 @@ async fn main() {
         .route("/api/create-auction", post(create_auction_handler))
         .route("/api/auctions", get(list_auctions))
         .route("/api/bid", post(place_bid_handler))
-        .route("/api/withdraw",post(withdraw_handler))
+        .route("/api/withdraw", post(withdraw_handler))
+
+        // Escrow routes
+        .route(
+           "/api/escrow/status/{auction_address}",
+            get(escrow_status_handler),
+        )
+        .route(
+           "/api/escrow/end",
+            post(end_auction_handler),
+        )
+        .route(
+            "/api/escrow/confirm",
+            post(confirm_receipt_handler),
+        )
+        .route(
+            "/api/escrow/claim-timeout",
+            post(claim_timeout_handler),
+        )
+        .route(
+            "/api/escrow/refund",
+            post(refund_handler),
+        )
 
         // Serve frontend static files
         .fallback_service(ServeDir::new("static"))
@@ -49,8 +82,14 @@ async fn main() {
 
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener =
+        tokio::net::TcpListener::bind("0.0.0.0:3000")
+            .await
+            .unwrap();
 
-    println!("🚀 T.R.U.S.T Auction Protocol running on http://localhost:3000");
+    println!(
+        "🚀 T.R.U.S.T Auction Protocol running on http://localhost:3000"
+    );
+
     axum::serve(listener, app).await.unwrap();
 }

@@ -17,15 +17,16 @@ abstract contract AuctionSettlement is AuctionState {
     }
 
     function endAuction() external {
-        require(block.timestamp >= endTime, "Auction not yet ended");
-        require(!ended, "Auction already closed");
+    require(block.timestamp >= endTime, "Auction not yet ended");
+    require(!ended, "Auction already closed");
+    require(highestBid > 0, "No bids placed");
 
-        ended = true;
+    ended = true;
 
-        escrowAmount = highestBid;
-        escrowReleaseTimeout = block.timestamp + confirmationWindow;
+    escrowAmount = highestBid;
+    escrowReleaseTimeout = block.timestamp + confirmationWindow;
 
-        emit AuctionEnded(highestBidder, highestBid);
-        emit EscrowFunded(highestBidder, highestBid);
-    }
+    emit AuctionEnded(highestBidder, highestBid);
+    emit EscrowFunded(highestBidder, highestBid);
+}
 }

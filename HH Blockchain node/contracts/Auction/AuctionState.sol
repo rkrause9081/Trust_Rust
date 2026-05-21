@@ -2,6 +2,14 @@
 pragma solidity ^0.8.20;
 
 abstract contract AuctionState {
+    enum EscrowStatus {
+        ActiveAuction,
+        AwaitingFinalization,
+        AwaitingBuyerConfirmation,
+        Complete,
+        Refunded
+    }
+
     address public seller;
     uint256 public endTime;
     uint256 public startingBid;
@@ -22,6 +30,7 @@ abstract contract AuctionState {
     uint256 public escrowAmount;
     uint256 public escrowReleaseTimeout;
     uint256 public confirmationWindow;
+
     bool public buyerConfirmed;
     bool public escrowSettled;
     bool public refundFlagged;
@@ -32,4 +41,24 @@ abstract contract AuctionState {
     event SellerClaimedAfterTimeout(address indexed seller, uint256 amount);
     event RefundFlagTripped(address indexed admin, uint256 amountRefunded);
     event EscrowFunded(address indexed winner, uint256 amount);
+
+ function getEscrowStatus() public view returns (EscrowStatus) {
+    if (!ended) {
+        return EscrowStatus.ActiveAuction;
+    }
+
+    if (refundFlagged) {
+        return EscrowStatus.Refunded;
+    }
+
+    if (ended && escrowAmount > 0 && !escrowSettled) {
+        return EscrowStatus.AwaitingBuyerConfirmation;
+    }
+
+    if (escrowSettled) {
+        return EscrowStatus.Complete;
+    }
+
+    return EscrowStatus.Complete;
+    }   
 }
