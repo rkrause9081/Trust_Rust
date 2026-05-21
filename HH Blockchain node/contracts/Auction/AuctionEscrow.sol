@@ -4,22 +4,11 @@ pragma solidity ^0.8.20;
 import "./AuctionState.sol";
 
 abstract contract AuctionEscrow is AuctionState {
-
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "Caller is not the admin");
-        _;
-    }
-
-    modifier escrowActive() {
-        require(ended, "Auction has not ended yet");
+    function confirmReceipt() external {
+        require(ended, "Auction not ended");
+        require(msg.sender == highestBidder, "Only winner can confirm");
         require(!escrowSettled, "Escrow already settled");
-        require(!refundFlagged, "Refund flag already tripped");
-        _;
-    }
-
-    function confirmReceipt() external escrowActive {
-        require(msg.sender == highestBidder, "Only the winning bidder can confirm");
-        require(escrowAmount > 0, "No funds in escrow");
+        require(escrowAmount > 0, "No escrow funds");
 
         buyerConfirmed = true;
         escrowSettled = true;
@@ -27,32 +16,41 @@ abstract contract AuctionEscrow is AuctionState {
         uint256 amount = escrowAmount;
         escrowAmount = 0;
 
+        (bool success, ) = payable(seller).call{value: amount}("");
+        require(success, "Transfer failed");
+
         emit BuyerConfirmedReceipt(msg.sender, amount);
-        payable(seller).transfer(amount);
     }
 
-    function claimAfterTimeout() external escrowActive {
-        require(msg.sender == seller, "Only the seller can claim timeout");
-        require(escrowAmount > 0, "No funds in escrow");
-        require(block.timestamp >= escrowReleaseTimeout, "Confirmation window has not expired");
+    function claimAfterTimeout() external {
+        require(ended, "Auction not ended");
+        require(msg.sender == seller, "Only seller can claim");
+        require(!escrowSettled, "Escrow already settled");
+        require(escrowAmount > 0, "No escrow funds");
+        require(
+            block.timestamp >= escrowReleaseTimeout,
+            "Confirmation window still active"
+        );
 
         escrowSettled = true;
 
         uint256 amount = escrowAmount;
         escrowAmount = 0;
 
+        (bool success, ) = payable(seller).call{value: amount}("");
+        require(success, "Transfer failed");
+
         emit SellerClaimedAfterTimeout(msg.sender, amount);
-        payable(seller).transfer(amount);
     }
 
-    function flagRefund() external onlyAdmin {
-        require(ended, "Auction has not ended yet");
+    function flagRefund() external {
+        require(ended, "Auction not ended");
+        require(msg.sender == admin, "Only admin can flag refund");
         require(!escrowSettled, "Escrow already settled");
-        require(!refundFlagged, "Refund already flagged");
-        require(escrowAmount > 0, "No funds in escrow to refund");
+        require(escrowAmount > 0, "No escrow funds");
 
-        refundFlagged = true;
         escrowSettled = true;
+        refundFlagged = true;
 
         uint256 amount = escrowAmount;
         escrowAmount = 0;
@@ -63,8 +61,38 @@ abstract contract AuctionEscrow is AuctionState {
     }
 
     function timeRemainingForConfirmation() external view returns (uint256) {
-        if (escrowSettled || !ended || escrowReleaseTimeout == 0) return 0;
-        if (block.timestamp >= escrowReleaseTimeout) return 0;
+        if (!ended || escrowSettled || block.timestamp >= escrowReleaseTimeout) {
+            return 0;
+        }
+
         return escrowReleaseTimeout - block.timestamp;
+    }
+
+    function canConfirmReceipt(address caller) external view returns (bool) {
+        return (
+            caller == highestBidder &&
+            ended &&
+            !escrowSettled &&
+            escrowAmount > 0
+        );
+    }
+
+    function canClaimTimeout(address caller) external view returns (bool) {
+        return (
+            caller == seller &&
+            ended &&
+            !escrowSettled &&
+            escrowAmount > 0 &&
+            block.timestamp >= escrowReleaseTimeout
+        );
+    }
+
+    function canFlagRefund(address caller) external view returns (bool) {
+        return (
+            caller == admin &&
+            ended &&
+            !escrowSettled &&
+            escrowAmount > 0
+        );
     }
 }

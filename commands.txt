@@ -27,7 +27,7 @@ npm install
 
 
 
-rm -rf artifacts cache        # Clear old builds
+ rm -rf artifacts cache       # Clear old builds
 npx hardhat compile           # Compile contracts
 npx hardhat node              # Start local blockchain
 
