@@ -234,4 +234,30 @@ window.onload = function () {
     ) {
         loadActiveAuctions();
     }
+    window.onload = function () {
+    const createForm = document.getElementById("createAuctionForm");
+
+    if (createForm) {
+        createForm.addEventListener("submit", handleCreateAuction);
+    }
+
+    if (typeof setupBidForm === "function") {
+        setupBidForm();
+    }
+
+    window.siweLogin = siweLogin;
+    window.logout = logout;
+    window.loadActiveAuctions = loadActiveAuctions;
+
+    if (window.ethereum) {
+        window.ethereum.on("accountsChanged", () => {
+            alert("Wallet changed. Please sign in again.");
+            logout();
+        });
+    }
+
+    if (typeof loadActiveAuctions === "function") {
+        loadActiveAuctions();
+    }
+};
 };
