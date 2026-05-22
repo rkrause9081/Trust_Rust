@@ -1,16 +1,89 @@
-function populateBidDropdown(auctions) {
-    const select = document.getElementById('bidAuction');
-    if (!select) return;
+/*
+ * utils.js
+ *
+ * Purpose:
+ *     Shared frontend utility helpers used across the
+ *     T.R.U.S.T Auction Protocol UI.
+ *
+ * Responsibilities:
+ *     - Format Ethereum addresses for display
+ *     - Parse backend API responses consistently
+ *
+ * Non-Responsibilities:
+ *     - Wallet authentication
+ *     - Auction rendering
+ *     - Blockchain transaction execution
+ *     - DOM initialization
+ *
+ * Architecture:
+ *
+ *      Frontend Modules
+ *             ↓
+ *           utils.js
+ *             ↓
+ *      Shared Helper Logic
+ */
 
-    select.innerHTML = '<option value="">-- Select an auction --</option>';
+/* -------------------------------------------------------------------------- */
+/*                           Ethereum Formatting                              */
+/* -------------------------------------------------------------------------- */
 
-    auctions.forEach(auction => {
-        const shortAddr = auction.auction_address.slice(0, 6) + '…' + auction.auction_address.slice(-4);
-        const startingEth = (parseFloat(auction.starting_bid_wei || "0") / 1e18).toFixed(4);
+/**
+ * Formats an Ethereum address for compact UI display.
+ *
+ * Example:
+ *     0x1234...abcd
+ *
+ * @param {string} address
+ * @param {string} [separator="..."]
+ * @returns {string}
+ */
+function shortAddress(address, separator = "...") {
+    if (!address || typeof address !== "string") {
+        return "";
+    }
 
-        const option = document.createElement('option');
-        option.value = auction.auction_address;
-        option.textContent = `${shortAddr} — Starting: ${startingEth} ETH`;
-        select.appendChild(option);
-    });
+    return (
+        address.slice(0, 6) +
+        separator +
+        address.slice(-4)
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              API Utilities                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Parses a backend response into JSON and throws consistent API errors.
+ *
+ * @param {Response} res
+ * @returns {Promise<Object>}
+ * @throws {Error} If the response is invalid or unsuccessful.
+ */
+async function parseJsonResponse(res) {
+    const text = await res.text();
+
+    let data = {};
+
+    try {
+        data = text
+            ? JSON.parse(text)
+            : {};
+    } catch {
+        throw new Error(
+            text || "Invalid server response"
+        );
+    }
+
+    if (!res.ok || data.success === false) {
+        throw new Error(
+            data.message ||
+            data.error ||
+            text ||
+            `Server error (${res.status})`
+        );
+    }
+
+    return data;
 }

@@ -1,5 +1,53 @@
+/*
+ * withdraw.js
+ *
+ * Purpose:
+ *     Handles frontend withdrawal modal state and withdrawal confirmation.
+ *
+ * Responsibilities:
+ *     - Open and close the withdrawal modal
+ *     - Track the selected auction for withdrawal
+ *     - Submit withdrawal requests to the backend API
+ *     - Display withdrawal status and transaction metadata
+ *     - Refresh auction data after successful withdrawals
+ *
+ * Non-Responsibilities:
+ *     - Wallet authentication
+ *     - Blockchain transaction execution
+ *     - Backend withdrawal validation
+ *     - Auction card rendering
+ *
+ * Architecture:
+ *
+ *      Withdraw Modal
+ *             ↓
+ *        withdraw.js
+ *             ↓
+ *      Withdraw API Route
+ *             ↓
+ *      Auction Contract
+ */
+
+/* -------------------------------------------------------------------------- */
+/*                              Modal State                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Currently selected auction address for withdrawal.
+ *
+ * @type {string|null}
+ */
 let selectedWithdrawAuction = null;
 
+/* -------------------------------------------------------------------------- */
+/*                              Modal Controls                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Opens the withdrawal modal for a selected auction.
+ *
+ * @param {string} auctionAddress
+ */
 function openWithdrawModal(auctionAddress) {
     selectedWithdrawAuction = auctionAddress;
 
@@ -7,7 +55,9 @@ function openWithdrawModal(auctionAddress) {
     const addressEl = document.getElementById("withdrawAuctionAddress");
     const statusEl = document.getElementById("withdrawStatus");
 
-    if (!modal || !addressEl || !statusEl) return;
+    if (!modal || !addressEl || !statusEl) {
+        return;
+    }
 
     addressEl.textContent = auctionAddress;
     statusEl.textContent = "";
@@ -17,6 +67,9 @@ function openWithdrawModal(auctionAddress) {
     modal.setAttribute("aria-hidden", "false");
 }
 
+/**
+ * Closes the withdrawal modal and clears local modal state.
+ */
 function closeWithdrawModal() {
     const modal = document.getElementById("withdrawModal");
     const statusEl = document.getElementById("withdrawStatus");
@@ -34,6 +87,15 @@ function closeWithdrawModal() {
     }
 }
 
+/* -------------------------------------------------------------------------- */
+/*                          Withdrawal Confirmation                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Confirms and submits the selected withdrawal request.
+ *
+ * @returns {Promise<void>}
+ */
 async function confirmWithdraw() {
     const statusEl = document.getElementById("withdrawStatus");
 
@@ -49,27 +111,19 @@ async function confirmWithdraw() {
     try {
         const res = await fetch("/api/withdraw", {
             method: "POST",
+
             headers: {
                 "Content-Type": "application/json",
             },
+
             credentials: "include",
+
             body: JSON.stringify({
                 auction_address: selectedWithdrawAuction,
             }),
         });
 
-        const text = await res.text();
-        let data = {};
-
-        try {
-            data = text ? JSON.parse(text) : {};
-        } catch {
-            throw new Error(text || "Invalid server response");
-        }
-
-        if (!res.ok || data.success === false) {
-            throw new Error(data.message || data.error || text || `Server error ${res.status}`);
-        }
+        const data = await parseJsonResponse(res);
 
         statusEl.innerHTML = `
             ✅ Withdrawal successful<br>
@@ -89,6 +143,10 @@ async function confirmWithdraw() {
         statusEl.style.color = "var(--danger)";
     }
 }
+
+/* -------------------------------------------------------------------------- */
+/*                              Global Exports                                */
+/* -------------------------------------------------------------------------- */
 
 window.openWithdrawModal = openWithdrawModal;
 window.closeWithdrawModal = closeWithdrawModal;
