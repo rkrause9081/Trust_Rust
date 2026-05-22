@@ -2,43 +2,64 @@
  * lib.rs
  *
  * Purpose:
- *     Crate root — declares and exports all public modules.
+ *     Crate root for the trust_rust_web library.
+ *
+ * Responsibilities:
+ *     - Declare public crate modules
+ *     - Re-export commonly used APIs
+ *     - Provide a centralized external interface
+ *
+ * Non-Responsibilities:
+ *     - Business logic execution
+ *     - Blockchain interaction
+ *     - Runtime orchestration
+ *     - HTTP request handling
+ *
+ * Architecture:
+ *
+ *         External Applications
+ *                  ↓
+ *               lib.rs
+ *                  ↓
+ *          Public Module APIs
+ *                  ↓
+ *        Blockchain Interaction
  */
 
-pub mod config;
+/* -------------------------------------------------------------------------- */
+/*                              Public Modules                                */
+/* -------------------------------------------------------------------------- */
+
 pub mod auction_loader;
 pub mod bidding;
+pub mod config;
 pub mod create_auction;
-pub mod registry;
 pub mod escrow;
+pub mod registry;
 pub mod withdraw;
 
-// === Public re-exports for easy use from trust_rust_web ===
+/* -------------------------------------------------------------------------- */
+/*                              Public Re-Exports                             */
+/* -------------------------------------------------------------------------- */
 
+/**
+ * Auction creation utilities and result types.
+ */
 pub use create_auction::{
-    create_auction,
-    create_auction_with_default_confirmation,
-    CreateAuctionResult,
+    CreateAuctionResult, create_auction, create_auction_with_default_confirmation,
 };
 
+/**
+ * Escrow settlement utilities, permission checks,
+ * and escrow lifecycle types.
+ */
 pub use escrow::{
-    confirm_receipt,
-    claim_after_timeout,
-    flag_refund,
-    end_auction,
-    get_time_remaining_for_confirmation,
-    get_escrow_status,
-    can_confirm_receipt,
-    can_claim_timeout,
-    can_flag_refund,
-    ConfirmReceiptResult,
-    ClaimAfterTimeoutResult,
-    FlagRefundResult,
-    EscrowStatus,
+    ClaimAfterTimeoutResult, ConfirmReceiptResult, EscrowStatus, FlagRefundResult,
+    can_claim_timeout, can_confirm_receipt, can_flag_refund, claim_after_timeout, confirm_receipt,
+    end_auction, flag_refund, get_escrow_status, get_time_remaining_for_confirmation,
 };
 
-pub use withdraw::{
-    withdraw,
-    get_pending_returns,
-    WithdrawResult,
-};
+/**
+ * Withdrawal and pending return utilities.
+ */
+pub use withdraw::{WithdrawResult, get_pending_returns, withdraw};

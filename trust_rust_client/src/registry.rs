@@ -2,13 +2,36 @@
  * registry.rs
  *
  * Purpose:
- *     On-chain auction registry read/query layer.
+ *     Provides on-chain auction registry query and data retrieval utilities.
+ *
+ * Responsibilities:
+ *     - Query auction registry state
+ *     - Retrieve auction metadata
+ *     - Retrieve paginated auction results
+ *     - Retrieve seller-associated auctions
+ *     - Map Solidity registry structs into Rust types
+ *
+ * Non-Responsibilities:
+ *     - Transaction execution
+ *     - Auction creation
+ *     - Escrow settlement
+ *     - HTTP request handling
+ *
+ * Architecture:
+ *
+ *     main.rs / handlers
+ *              ↓
+ *         registry.rs
+ *              ↓
+ *      Auction Factory Contract
+ *              ↓
+ *        Registry Storage
  */
 
 use alloy::{
+    network::TransactionBuilder,
     primitives::{Address, U256},
     providers::Provider,
-    network::TransactionBuilder,
     rpc::types::TransactionRequest,
     sol,
     sol_types::SolCall,
@@ -16,6 +39,10 @@ use alloy::{
 
 use eyre::Result;
 use serde::Serialize;
+
+/* -------------------------------------------------------------------------- */
+/*                          Solidity Contract Bindings                        */
+/* -------------------------------------------------------------------------- */
 
 sol! {
     struct AuctionRegistryItem {
@@ -45,6 +72,7 @@ sol! {
     }
 
     function getAuctions() external view returns (address[]);
+
     function auctionCount() external view returns (uint256);
 
     function getAuctionRegistryItem(
@@ -69,6 +97,14 @@ sol! {
     ) external view returns (bool);
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               Registry Types                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Strongly-typed Rust representation of an auction
+ * registry entry returned by the factory contract.
+ */
 #[derive(Debug, Clone, Serialize)]
 pub struct RegistryAuction {
     pub auction_address: Address,
@@ -96,6 +132,22 @@ pub struct RegistryAuction {
     pub image_placeholder: String,
 }
 
+/* -------------------------------------------------------------------------- */
+/*                             Internal Mapping Logic                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Converts a Solidity `AuctionRegistryItem` into a strongly-typed
+ * Rust `RegistryAuction`.
+ *
+ * # Arguments
+ *
+ * * `item` - Solidity registry struct returned from the contract.
+ *
+ * # Returns
+ *
+ * Mapped Rust registry representation.
+ */
 fn map_registry_item(item: AuctionRegistryItem) -> RegistryAuction {
     RegistryAuction {
         auction_address: item.auctionAddress,
@@ -124,12 +176,29 @@ fn map_registry_item(item: AuctionRegistryItem) -> RegistryAuction {
     }
 }
 
-// ==================== VIEW FUNCTIONS ====================
+/* -------------------------------------------------------------------------- */
+/*                              Registry Queries                              */
+/* -------------------------------------------------------------------------- */
 
-pub async fn get_auction_count<P>(
-    provider: &P,
-    factory_address: Address,
-) -> Result<U256>
+/**
+ * Retrieves the total number of registered auctions.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ *
+ * # Returns
+ *
+ * Total auction count as `U256`.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
+pub async fn get_auction_count<P>(provider: &P, factory_address: Address) -> Result<U256>
 where
     P: Provider + ?Sized,
 {
@@ -144,10 +213,25 @@ where
     Ok(auctionCountCall::abi_decode_returns(&response)?)
 }
 
-pub async fn get_auctions<P>(
-    provider: &P,
-    factory_address: Address,
-) -> Result<Vec<Address>>
+/**
+ * Retrieves all registered auction addresses.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ *
+ * # Returns
+ *
+ * Vector of registered auction addresses.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
+pub async fn get_auctions<P>(provider: &P, factory_address: Address) -> Result<Vec<Address>>
 where
     P: Provider + ?Sized,
 {
@@ -162,6 +246,25 @@ where
     Ok(getAuctionsCall::abi_decode_returns(&response)?)
 }
 
+/**
+ * Retrieves detailed registry information for a specific auction.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ * * `auction_address` - Auction contract address.
+ *
+ * # Returns
+ *
+ * Strongly-typed `RegistryAuction`.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
 pub async fn get_auction_registry_item<P>(
     provider: &P,
     factory_address: Address,
@@ -181,12 +284,30 @@ where
 
     let response = provider.call(tx).await?;
 
-    let item =
-        getAuctionRegistryItemCall::abi_decode_returns(&response)?;
+    let item = getAuctionRegistryItemCall::abi_decode_returns(&response)?;
 
     Ok(map_registry_item(item))
 }
 
+/**
+ * Retrieves a registry entry by its index position.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ * * `index` - Registry index position.
+ *
+ * # Returns
+ *
+ * Strongly-typed `RegistryAuction`.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
 pub async fn get_auction_by_index<P>(
     provider: &P,
     factory_address: Address,
@@ -208,6 +329,28 @@ where
     Ok(map_registry_item(item))
 }
 
+/**
+ * Retrieves paginated registry auction results.
+ *
+ * Useful for frontend pagination or large registry traversal.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ * * `offset` - Pagination starting index.
+ * * `limit` - Maximum number of results to return.
+ *
+ * # Returns
+ *
+ * Vector of `RegistryAuction` entries.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
 pub async fn get_auctions_paginated<P>(
     provider: &P,
     factory_address: Address,
@@ -217,11 +360,7 @@ pub async fn get_auctions_paginated<P>(
 where
     P: Provider + ?Sized,
 {
-    let calldata = getAuctionsPaginatedCall {
-        offset,
-        limit,
-    }
-    .abi_encode();
+    let calldata = getAuctionsPaginatedCall { offset, limit }.abi_encode();
 
     let tx = TransactionRequest::default()
         .with_to(factory_address)
@@ -229,12 +368,30 @@ where
 
     let response = provider.call(tx).await?;
 
-    let items =
-        getAuctionsPaginatedCall::abi_decode_returns(&response)?;
+    let items = getAuctionsPaginatedCall::abi_decode_returns(&response)?;
 
     Ok(items.into_iter().map(map_registry_item).collect())
 }
 
+/**
+ * Retrieves all auction addresses created by a seller.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ * * `seller` - Seller wallet address.
+ *
+ * # Returns
+ *
+ * Vector of seller-created auction addresses.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
 pub async fn get_auctions_by_seller<P>(
     provider: &P,
     factory_address: Address,
@@ -243,8 +400,7 @@ pub async fn get_auctions_by_seller<P>(
 where
     P: Provider + ?Sized,
 {
-    let calldata =
-        getAuctionsBySellerCall { seller }.abi_encode();
+    let calldata = getAuctionsBySellerCall { seller }.abi_encode();
 
     let tx = TransactionRequest::default()
         .with_to(factory_address)
@@ -252,11 +408,28 @@ where
 
     let response = provider.call(tx).await?;
 
-    Ok(getAuctionsBySellerCall::abi_decode_returns(
-        &response,
-    )?)
+    Ok(getAuctionsBySellerCall::abi_decode_returns(&response)?)
 }
 
+/**
+ * Checks whether an auction address is registered.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ * * `auction_address` - Auction contract address.
+ *
+ * # Returns
+ *
+ * `true` if the auction exists in the registry.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
 pub async fn is_registered_auction<P>(
     provider: &P,
     factory_address: Address,
@@ -276,7 +449,5 @@ where
 
     let response = provider.call(tx).await?;
 
-    Ok(isRegisteredAuctionCall::abi_decode_returns(
-        &response,
-    )?)
+    Ok(isRegisteredAuctionCall::abi_decode_returns(&response)?)
 }

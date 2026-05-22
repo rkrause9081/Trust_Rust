@@ -1,49 +1,103 @@
-a// ====================== AUTH HELPERS ======================
+/*
+ * auth.js
+ *
+ * Purpose:
+ *     Handles frontend Sign-In With Ethereum (SIWE)
+ *     authentication flows and wallet session UI.
+ *
+ * Responsibilities:
+ *     - Request authentication nonces
+ *     - Open wallet connection modal
+ *     - Sign SIWE messages
+ *     - Submit signed authentication payloads
+ *     - Store authenticated wallet UI state
+ *     - Refresh auction UI after login
+ *
+ * Non-Responsibilities:
+ *     - Backend session validation
+ *     - Blockchain transaction execution
+ *     - Persistent authentication storage
+ *     - Auction rendering logic
+ *
+ * Architecture:
+ *
+ *      Browser Wallet
+ *            ↓
+ *          auth.js
+ *            ↓
+ *        Auth API
+ *            ↓
+ *       Backend SIWE
+ */
 
-function shortAddress(address) {
-    if (!address || typeof address !== "string") return "";
-    return address.slice(0, 6) + "..." + address.slice(-4);
-}
+/* -------------------------------------------------------------------------- */
+/*                              Auth Helpers                                  */
+/* -------------------------------------------------------------------------- */
 
+/**
+ * Requests a one-time SIWE nonce from the backend.
+ *
+ * @returns {Promise<string>}
+ */
 async function getNonce() {
     const res = await fetch("/auth/nonce", {
         method: "GET",
         credentials: "include",
     });
 
-    const text = await res.text();
-    const data = text ? JSON.parse(text) : {};
-
-    if (!res.ok) {
-        throw new Error(data.message || data.error || text || "Failed to fetch nonce");
-    }
+    const data = await parseJsonResponse(res);
 
     return data.nonce;
 }
 
+/**
+ * Updates the frontend UI to reflect an authenticated wallet session.
+ *
+ * @param {string} wallet
+ */
 function setLoggedInWallet(wallet) {
     document.body.classList.add("logged-in");
 
-    const pill = document.getElementById("walletPill");
+    const pill =
+        document.getElementById("walletPill");
+
     if (pill) {
-        pill.textContent = shortAddress(wallet);
-        pill.style.display = "inline-block";
+        pill.textContent =
+            shortAddress(wallet);
+
+        pill.style.display =
+            "inline-block";
     }
 
-    const heading = document.getElementById("walletHeading");
+    const heading =
+        document.getElementById("walletHeading");
+
     if (heading) {
-        heading.textContent = shortAddress(wallet);
+        heading.textContent =
+            shortAddress(wallet);
     }
 }
 
-// ====================== WALLET MODAL ======================
+/* -------------------------------------------------------------------------- */
+/*                              Wallet Modal                                  */
+/* -------------------------------------------------------------------------- */
 
+/**
+ * Displays the wallet address entry modal.
+ *
+ * Creates the modal dynamically if it does not already exist.
+ *
+ * @param {Function} callback
+ */
 function showWalletAddressModal(callback) {
-    let modal = document.getElementById("walletModal");
+    let modal =
+        document.getElementById("walletModal");
 
     if (!modal) {
         modal = document.createElement("div");
+
         modal.id = "walletModal";
+
         modal.style.cssText = `
             position:fixed;
             top:0;
@@ -60,7 +114,10 @@ function showWalletAddressModal(callback) {
 
         modal.innerHTML = `
             <div style="background:#0d1117; border:1px solid #00e5ff; padding:2rem; width:100%; max-width:420px; border-radius:8px; box-shadow:0 0 30px rgba(0,229,255,0.3);">
-                <h2 style="color:#00e5ff; margin-bottom:1rem; font-size:1.4rem;">Enter Wallet Address</h2>
+
+                <h2 style="color:#00e5ff; margin-bottom:1rem; font-size:1.4rem;">
+                    Enter Wallet Address
+                </h2>
 
                 <p style="color:#6b7c8f; font-size:0.9rem; margin-bottom:1.5rem;">
                     Paste one of your Hardhat account addresses.
@@ -74,6 +131,7 @@ function showWalletAddressModal(callback) {
                 >
 
                 <div style="display:flex; gap:1rem;">
+
                     <button
                         type="button"
                         onclick="hideWalletModal()"
@@ -89,6 +147,7 @@ function showWalletAddressModal(callback) {
                     >
                         Continue →
                     </button>
+
                 </div>
             </div>
         `;
@@ -97,20 +156,44 @@ function showWalletAddressModal(callback) {
     }
 
     modal.style.display = "flex";
+
     window.modalCallback = callback;
 }
 
+/**
+ * Hides the wallet modal.
+ */
 function hideWalletModal() {
-    const modal = document.getElementById("walletModal");
-    if (modal) modal.style.display = "none";
+    const modal =
+        document.getElementById("walletModal");
+
+    if (modal) {
+        modal.style.display = "none";
+    }
 }
 
+/**
+ * Handles wallet modal confirmation logic.
+ *
+ * Validates the entered wallet address and requests
+ * wallet access from MetaMask before invoking the callback.
+ */
 async function handleModalConfirm() {
-    const input = document.getElementById("modalAddressInput");
-    const address = input.value.trim();
+    const input =
+        document.getElementById(
+            "modalAddressInput"
+        );
 
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        alert("Please enter a valid Ethereum address.");
+    const address =
+        input.value.trim();
+
+    if (
+        !/^0x[a-fA-F0-9]{40}$/.test(address)
+    ) {
+        alert(
+            "Please enter a valid Ethereum address."
+        );
+
         return;
     }
 
@@ -121,67 +204,116 @@ async function handleModalConfirm() {
             method: "eth_requestAccounts",
         });
 
-        if (typeof window.modalCallback === "function") {
+        if (
+            typeof window.modalCallback ===
+            "function"
+        ) {
             await window.modalCallback(address);
         }
     } catch (err) {
-        alert("Failed to connect wallet: " + err.message);
+        alert(
+            "Failed to connect wallet: " +
+            err.message
+        );
     }
 }
 
-// ====================== SIWE LOGIN ======================
+/* -------------------------------------------------------------------------- */
+/*                               SIWE Login                                   */
+/* -------------------------------------------------------------------------- */
 
+/**
+ * Executes the frontend SIWE authentication flow.
+ *
+ * This flow:
+ *     - Requests a backend nonce
+ *     - Creates a SIWE message
+ *     - Requests a wallet signature
+ *     - Sends the signed payload to the backend
+ *     - Updates authenticated UI state
+ *     - Reloads auction data
+ *
+ * @returns {Promise<void>}
+ */
 async function siweLogin() {
     if (!window.ethereum) {
         alert("MetaMask not found.");
+
         return;
     }
 
-    showWalletAddressModal(async (userAddress) => {
-        try {
-            const nonce = await getNonce();
+    showWalletAddressModal(
+        async (userAddress) => {
+            try {
+                const nonce =
+                    await getNonce();
 
-            const message = `${userAddress}\n\nSign in with Ethereum\n\nNonce: ${nonce}`;
+                const message =
+                    `${userAddress}\n\n` +
+                    `Sign in with Ethereum\n\n` +
+                    `Nonce: ${nonce}`;
 
-            const signature = await ethereum.request({
-                method: "personal_sign",
-                params: [message, userAddress],
-            });
+                const signature =
+                    await ethereum.request({
+                        method: "personal_sign",
 
-            const res = await fetch("/auth/verify", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "include",
-                body: JSON.stringify({
-                    message,
-                    signature,
-                }),
-            });
+                        params: [
+                            message,
+                            userAddress,
+                        ],
+                    });
 
-            const text = await res.text();
-            const data = text ? JSON.parse(text) : {};
+                const res = await fetch(
+                    "/auth/verify",
+                    {
+                        method: "POST",
 
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || data.error || text || "Login failed on backend");
-            }
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
 
-            console.log("Logged in as:", data.wallet);
+                        credentials: "include",
 
-            setLoggedInWallet(data.wallet);
+                        body: JSON.stringify({
+                            message,
+                            signature,
+                        }),
+                    }
+                );
 
-            if (typeof loadActiveAuctions === "function") {
-                await loadActiveAuctions();
-            }
-        } catch (err) {
-            console.error(err);
+                const data =
+                    await parseJsonResponse(res);
 
-            if (err.code === 4001) {
-                alert("You cancelled the signature.");
-            } else {
-                alert("Sign-in error: " + err.message);
+                console.log(
+                    "Logged in as:",
+                    data.wallet
+                );
+
+                setLoggedInWallet(
+                    data.wallet
+                );
+
+                if (
+                    typeof loadActiveAuctions ===
+                    "function"
+                ) {
+                    await loadActiveAuctions();
+                }
+            } catch (err) {
+                console.error(err);
+
+                if (err.code === 4001) {
+                    alert(
+                        "You cancelled the signature."
+                    );
+                } else {
+                    alert(
+                        "Sign-in error: " +
+                        err.message
+                    );
+                }
             }
         }
-    });
+    );
 }

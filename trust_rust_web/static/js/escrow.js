@@ -1,201 +1,365 @@
-// ====================== ESCROW HELPERS ======================
+/*
+ * escrow.js
+ *
+ * Purpose:
+ *     Handles frontend escrow lifecycle interactions and
+ *     escrow status rendering for auction settlement flows.
+ *
+ * Responsibilities:
+ *     - Fetch escrow status from backend APIs
+ *     - Render escrow action panels
+ *     - Execute escrow-related API actions
+ *     - Refresh auction UI after escrow updates
+ *     - Display settlement status information
+ *
+ * Non-Responsibilities:
+ *     - Wallet authentication
+ *     - Smart contract execution
+ *     - Backend authorization
+ *     - Auction rendering logic
+ *
+ * Architecture:
+ *
+ *      Auction UI
+ *           ↓
+ *        escrow.js
+ *           ↓
+ *      Escrow API Routes
+ *           ↓
+ *      Blockchain Escrow Logic
+ */
 
-async function escrowRequest(url, body = null) {
-    const res = await fetch(url, {
-        method: body ? "POST" : "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: body ? JSON.stringify(body) : undefined,
-    });
+/* -------------------------------------------------------------------------- */
+/*                              Status Helpers                                */
+/* -------------------------------------------------------------------------- */
 
-    const text = await res.text();
+/**
+ * Returns a frontend color associated with an escrow status.
+ *
+ * @param {string} status
+ * @returns {string}
+ */
+function escrowStatusColor(status) {
+    switch (status) {
+        case "Complete":
+            return "#32ff9a";
 
-    let data = {};
+        case "Refunded":
+            return "#ffb84d";
 
-    try {
-        data = text ? JSON.parse(text) : {};
-    } catch {
-        throw new Error(text || "Invalid server response");
+        case "AwaitingBuyerConfirmation":
+            return "#00e5ff";
+
+        case "AwaitingFinalization":
+            return "#b388ff";
+
+        case "ActiveAuction":
+            return "#6b7c8f";
+
+        default:
+            return "#6b7c8f";
     }
-
-    if (!res.ok || data.success === false) {
-        throw new Error(
-            data.message ||
-            data.error ||
-            "Escrow request failed"
-        );
-    }
-
-    return data;
 }
 
-// ====================== STATUS ======================
+/**
+ * Formats remaining confirmation seconds into a readable string.
+ *
+ * @param {number} seconds
+ * @returns {string}
+ */
+function formatRemainingTime(seconds) {
+    const value = Number(seconds || 0);
 
-async function loadEscrowStatus(auctionAddress) {
+    if (value <= 0) {
+        return "Expired";
+    }
+
+    const days =
+        Math.floor(value / 86400);
+
+    const hours =
+        Math.floor((value % 86400) / 3600);
+
+    const minutes =
+        Math.floor((value % 3600) / 60);
+
+    if (days > 0) {
+        return `${days}d ${hours}h`;
+    }
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+
+    return `${minutes}m`;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                           Escrow Status Loading                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Loads escrow status information for an auction.
+ *
+ * @param {string} auctionAddress
+ * @returns {Promise<Object|null>}
+ */
+async function loadEscrowStatus(
+    auctionAddress
+) {
     try {
-        return await escrowRequest(
-            `/api/escrow/status/${auctionAddress}`
+        const res = await fetch(
+            `/api/escrow/status/${auctionAddress}`,
+            {
+                method: "GET",
+                credentials: "include",
+            }
         );
+
+        return await parseJsonResponse(res);
     } catch (err) {
-        console.error("Escrow status error:", err);
+        console.error(
+            "Failed to load escrow status:",
+            err
+        );
+
         return null;
     }
 }
 
-// ====================== ACTIONS ======================
+/* -------------------------------------------------------------------------- */
+/*                           Escrow API Actions                               */
+/* -------------------------------------------------------------------------- */
 
-async function endAuction(auctionAddress) {
+/**
+ * Executes an escrow API action.
+ *
+ * @param {string} endpoint
+ * @param {string} auctionAddress
+ * @returns {Promise<Object>}
+ */
+async function executeEscrowAction(
+    endpoint,
+    auctionAddress
+) {
+    const res = await fetch(endpoint, {
+        method: "POST",
+
+        headers: {
+            "Content-Type":
+                "application/json",
+        },
+
+        credentials: "include",
+
+        body: JSON.stringify({
+            auction_address:
+                auctionAddress,
+        }),
+    });
+
+    return await parseJsonResponse(res);
+}
+
+/**
+ * Ends an auction after the bidding period expires.
+ *
+ * @param {string} auctionAddress
+ * @returns {Promise<void>}
+ */
+async function handleEndAuction(
+    auctionAddress
+) {
     try {
-        const result = await escrowRequest(
-            "/api/escrow/end",
-            {
-                auction_address: auctionAddress,
-            }
+        const data =
+            await executeEscrowAction(
+                "/api/escrow/end",
+                auctionAddress
+            );
+
+        alert(
+            `Auction ended!\nTX: ${data.tx_hash || "pending"}`
         );
 
-        alert(`Auction finalized.\nTx: ${result.tx_hash}`);
-
-        if (typeof loadActiveAuctions === "function") {
+        if (
+            typeof loadActiveAuctions ===
+            "function"
+        ) {
             await loadActiveAuctions();
         }
     } catch (err) {
-        alert(`Failed to finalize auction:\n${err.message}`);
+        console.error(
+            "End auction error:",
+            err
+        );
+
+        alert(
+            "Failed to end auction: " +
+            err.message
+        );
     }
 }
 
-async function confirmReceipt(auctionAddress) {
+/**
+ * Confirms receipt of the auctioned item.
+ *
+ * @param {string} auctionAddress
+ * @returns {Promise<void>}
+ */
+async function handleConfirmReceipt(
+    auctionAddress
+) {
     try {
-        const result = await escrowRequest(
-            "/api/escrow/confirm",
-            {
-                auction_address: auctionAddress,
-            }
+        const data =
+            await executeEscrowAction(
+                "/api/escrow/confirm",
+                auctionAddress
+            );
+
+        alert(
+            `Receipt confirmed!\nTX: ${data.tx_hash || "pending"}`
         );
 
-        alert(`Receipt confirmed.\nTx: ${result.tx_hash}`);
-
-        if (typeof loadActiveAuctions === "function") {
+        if (
+            typeof loadActiveAuctions ===
+            "function"
+        ) {
             await loadActiveAuctions();
         }
     } catch (err) {
-        alert(`Failed to confirm receipt:\n${err.message}`);
+        console.error(
+            "Confirm receipt error:",
+            err
+        );
+
+        alert(
+            "Failed to confirm receipt: " +
+            err.message
+        );
     }
 }
 
-async function claimTimeout(auctionAddress) {
+/**
+ * Claims escrow settlement after confirmation timeout expiration.
+ *
+ * @param {string} auctionAddress
+ * @returns {Promise<void>}
+ */
+async function handleClaimTimeout(
+    auctionAddress
+) {
     try {
-        const result = await escrowRequest(
-            "/api/escrow/claim-timeout",
-            {
-                auction_address: auctionAddress,
-            }
+        const data =
+            await executeEscrowAction(
+                "/api/escrow/claim-timeout",
+                auctionAddress
+            );
+
+        alert(
+            `Timeout claimed!\nTX: ${data.tx_hash || "pending"}`
         );
 
-        alert(`Timeout claim successful.\nTx: ${result.tx_hash}`);
-
-        if (typeof loadActiveAuctions === "function") {
+        if (
+            typeof loadActiveAuctions ===
+            "function"
+        ) {
             await loadActiveAuctions();
         }
     } catch (err) {
-        alert(`Failed to claim timeout:\n${err.message}`);
+        console.error(
+            "Claim timeout error:",
+            err
+        );
+
+        alert(
+            "Failed to claim timeout: " +
+            err.message
+        );
     }
 }
 
-async function flagRefund(auctionAddress) {
+/**
+ * Flags an escrow refund action.
+ *
+ * @param {string} auctionAddress
+ * @returns {Promise<void>}
+ */
+async function handleRefund(
+    auctionAddress
+) {
     try {
-        const result = await escrowRequest(
-            "/api/escrow/refund",
-            {
-                auction_address: auctionAddress,
-            }
+        const data =
+            await executeEscrowAction(
+                "/api/escrow/refund",
+                auctionAddress
+            );
+
+        alert(
+            `Refund flagged!\nTX: ${data.tx_hash || "pending"}`
         );
 
-        alert(`Refund flagged.\nTx: ${result.tx_hash}`);
-
-        if (typeof loadActiveAuctions === "function") {
+        if (
+            typeof loadActiveAuctions ===
+            "function"
+        ) {
             await loadActiveAuctions();
         }
     } catch (err) {
-        alert(`Failed to flag refund:\n${err.message}`);
+        console.error(
+            "Refund error:",
+            err
+        );
+
+        alert(
+            "Failed to flag refund: " +
+            err.message
+        );
     }
 }
 
-// ====================== UI HELPERS ======================
+/* -------------------------------------------------------------------------- */
+/*                           Escrow Panel Rendering                           */
+/* -------------------------------------------------------------------------- */
 
-function formatEscrowStatusLabel(status, isActive) {
-    if (status === "ActiveAuction" && isActive) {
-        return "Bidding Active";
-    }
-
-    if (status === "ActiveAuction" && !isActive) {
-        return "Ready To Finalize";
-    }
-
-    if (status === "AwaitingFinalization") {
-        return "Ready To Finalize";
-    }
-
-    if (status === "AwaitingBuyerConfirmation") {
-        return "Awaiting Buyer Confirmation";
-    }
-
-    if (status === "Complete") {
-        return "Complete";
-    }
-
-    if (status === "Refunded") {
-        return "Refunded";
-    }
-
-    return status || "Unknown";
-}
-
-function buildEscrowPanel(auctionAddress, escrow, isActive) {
+/**
+ * Builds the escrow status/action panel HTML for an auction card.
+ *
+ * @param {string} auctionAddress
+ * @param {Object|null} escrow
+ * @returns {string}
+ */
+function buildEscrowPanel(
+    auctionAddress,
+    escrow
+) {
     if (!escrow) {
         return `
             <div class="escrow-panel">
-                <div class="escrow-header">Settlement</div>
-                <div class="escrow-complete">
-                    Failed to load escrow status
+                <div class="escrow-status-line">
+                    Escrow status unavailable
                 </div>
             </div>
         `;
     }
 
-    const status = escrow.status || "Unknown";
+    const status =
+        escrow.status || "Unknown";
 
-    const timeRemaining = Number(
-        escrow.time_remaining_seconds || 0
-    );
+    const color =
+        escrowStatusColor(status);
 
-    const hours = Math.floor(timeRemaining / 3600);
-    const minutes = Math.floor((timeRemaining % 3600) / 60);
+    const remaining =
+        formatRemainingTime(
+            escrow.time_remaining_seconds
+        );
 
-    let buttons = "";
-
-    if (
-        (status === "ActiveAuction" && !isActive) ||
-        status === "AwaitingFinalization"
-    ) {
-        buttons += `
-            <button
-                class="btn-primary"
-                type="button"
-                onclick="endAuction('${auctionAddress}')"
-            >
-                End Auction
-            </button>
-        `;
-    }
+    let actions = "";
 
     if (escrow.can_confirm_receipt) {
-        buttons += `
+        actions += `
             <button
                 class="btn-primary"
-                type="button"
-                onclick="confirmReceipt('${auctionAddress}')"
+                onclick="handleConfirmReceipt('${auctionAddress}')"
             >
                 Confirm Receipt
             </button>
@@ -203,11 +367,10 @@ function buildEscrowPanel(auctionAddress, escrow, isActive) {
     }
 
     if (escrow.can_claim_timeout) {
-        buttons += `
+        actions += `
             <button
-                class="btn-primary"
-                type="button"
-                onclick="claimTimeout('${auctionAddress}')"
+                class="btn-secondary"
+                onclick="handleClaimTimeout('${auctionAddress}')"
             >
                 Claim Timeout
             </button>
@@ -215,62 +378,55 @@ function buildEscrowPanel(auctionAddress, escrow, isActive) {
     }
 
     if (escrow.can_flag_refund) {
-        buttons += `
+        actions += `
             <button
-                class="btn-ghost"
-                type="button"
-                onclick="flagRefund('${auctionAddress}')"
+                class="btn-danger"
+                onclick="handleRefund('${auctionAddress}')"
             >
                 Flag Refund
             </button>
         `;
     }
 
+    if (
+        status ===
+        "AwaitingFinalization"
+    ) {
+        actions += `
+            <button
+                class="btn-secondary"
+                onclick="handleEndAuction('${auctionAddress}')"
+            >
+                End Auction
+            </button>
+        `;
+    }
+
     return `
         <div class="escrow-panel">
-            <div class="escrow-header">
-                Settlement
-            </div>
 
-            <div class="escrow-status">
-                Status:
-                <span class="accent">
-                    ${formatEscrowStatusLabel(status, isActive)}
+            <div class="escrow-status-line">
+                Escrow Status:
+                <span style="color:${color};">
+                    ${status}
                 </span>
             </div>
 
+            <div class="escrow-status-line">
+                Confirmation Window:
+                ${remaining}
+            </div>
+
             ${
-                timeRemaining > 0
+                actions
                     ? `
-                        <div class="escrow-time">
-                            Buyer confirmation window:
-                            ${hours}h ${minutes}m
+                        <div class="escrow-actions">
+                            ${actions}
                         </div>
                     `
                     : ""
             }
 
-            ${
-                buttons
-                    ? `
-                        <div class="escrow-actions">
-                            ${buttons}
-                        </div>
-                    `
-                    : `
-                        <div class="escrow-complete">
-                            No escrow actions available
-                        </div>
-                    `
-            }
         </div>
     `;
 }
-
-// expose globally
-window.loadEscrowStatus = loadEscrowStatus;
-window.buildEscrowPanel = buildEscrowPanel;
-window.endAuction = endAuction;
-window.confirmReceipt = confirmReceipt;
-window.claimTimeout = claimTimeout;
-window.flagRefund = flagRefund;

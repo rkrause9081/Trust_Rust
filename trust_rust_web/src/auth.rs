@@ -2,87 +2,171 @@
  * auth.rs
  *
  * Purpose:
- *     Handles Sign-In With Ethereum (SIWE) authentication.
+ *     Handles Sign-In With Ethereum (SIWE) authentication for
+ *     the Trust Rust web server.
  *
- *     This module is responsible for:
- *         - Generating one-time nonces
- *         - Verifying signed SIWE messages
- *         - Creating and managing user sessions via cookies
+ * Responsibilities:
+ *     - Generate one-time authentication nonces
+ *     - Verify signed SIWE messages
+ *     - Recover signer wallet addresses
+ *     - Create in-memory user sessions
+ *     - Set HTTP-only session cookies
  *
- *     It does NOT:
- *         - Store persistent user data (in-memory only)
- *         - Perform blockchain transactions
+ * Non-Responsibilities:
+ *     - Persistent user storage
+ *     - Blockchain transactions
+ *     - Authorization for protected routes
+ *     - Long-term session cleanup
+ *
+ * Architecture:
+ *
+ *      Browser Wallet
+ *            ↓
+ *       SIWE Message
+ *            ↓
+ *         auth.rs
+ *            ↓
+ *      AppState Sessions
  */
 
-use axum::{extract::State, Json};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use alloy_primitives::{Address, Signature};
-use tower_cookies::{Cookies, Cookie};
 use std::sync::Arc;
+
+use alloy_primitives::{Address, Signature};
+
+use axum::{extract::State, Json};
+
+use serde::{Deserialize, Serialize};
+
+use tower_cookies::{Cookie, Cookies};
+
+use uuid::Uuid;
 
 use crate::state::AppState;
 
-/* ====================== RESPONSE TYPES ====================== */
+/* -------------------------------------------------------------------------- */
+/*                              Response Types                                */
+/* -------------------------------------------------------------------------- */
 
+/**
+ * Response returned when a new SIWE nonce is generated.
+ */
 #[derive(Serialize)]
 pub struct NonceResponse {
     pub nonce: String,
 }
 
+/**
+ * Request payload used to verify a signed SIWE message.
+ */
 #[derive(Deserialize)]
 pub struct VerifyRequest {
     pub message: String,
     pub signature: String,
 }
 
+/**
+ * Response returned after successful SIWE verification.
+ */
 #[derive(Serialize)]
 pub struct VerifyResponse {
     pub success: bool,
     pub wallet: String,
 }
 
-/* ====================== HANDLERS ====================== */
+/* -------------------------------------------------------------------------- */
+/*                              Auth Handlers                                 */
+/* -------------------------------------------------------------------------- */
 
+/**
+ * Generates and stores a one-time SIWE nonce.
+ *
+ * The nonce is stored in shared application state and must
+ * be consumed during signature verification.
+ *
+ * # Arguments
+ *
+ * * `state` - Shared Axum application state.
+ *
+ * # Returns
+ *
+ * JSON response containing the generated nonce.
+ */
 pub async fn get_nonce(State(state): State<Arc<AppState>>) -> Json<NonceResponse> {
     let nonce = Uuid::new_v4().to_string();
 
-    state.nonces.lock().unwrap().insert(nonce.clone(), nonce.clone());
+    state
+        .nonces
+        .lock()
+        .unwrap()
+        .insert(nonce.clone(), nonce.clone());
 
     Json(NonceResponse { nonce })
 }
 
+/**
+ * Verifies a signed SIWE message and creates a user session.
+ *
+ * This handler:
+ *     - Extracts the nonce from the signed message
+ *     - Extracts the claimed wallet address
+ *     - Consumes the nonce to prevent replay attacks
+ *     - Recovers the signer from the submitted signature
+ *     - Compares the recovered signer with the claimed wallet
+ *     - Creates an in-memory session
+ *     - Sets an HTTP-only session cookie
+ *
+ * # Arguments
+ *
+ * * `state` - Shared Axum application state.
+ * * `cookies` - Cookie jar used to set the session cookie.
+ * * `payload` - Signed SIWE message and signature.
+ *
+ * # Returns
+ *
+ * JSON response indicating success and the authenticated wallet.
+ *
+ * # Errors
+ *
+ * Returns a string error if:
+ *     - The nonce is missing
+ *     - The wallet address is missing or invalid
+ *     - The nonce is invalid or expired
+ *     - The signature format is invalid
+ *     - The signer cannot be recovered
+ *     - The recovered signer does not match the claimed wallet
+ */
 pub async fn verify_siwe(
     State(state): State<Arc<AppState>>,
     cookies: Cookies,
     Json(payload): Json<VerifyRequest>,
 ) -> Result<Json<VerifyResponse>, String> {
-
-    // Extract nonce from message (for replay protection)
-    let nonce = payload.message
+    let nonce = payload
+        .message
         .lines()
-        .find(|l| l.starts_with("Nonce: "))
-        .and_then(|l| l.strip_prefix("Nonce: "))
+        .find(|line| line.starts_with("Nonce: "))
+        .and_then(|line| line.strip_prefix("Nonce: "))
         .ok_or("Nonce missing")?
         .to_string();
 
-    // Extract claimed wallet address
-    let claimed_wallet_line = payload.message
+    let claimed_wallet_line = payload
+        .message
         .lines()
-        .find(|l| l.starts_with("0x"))
+        .find(|line| line.starts_with("0x"))
         .ok_or("Wallet missing")?;
 
-    let claimed_wallet: Address = claimed_wallet_line.parse()
+    let claimed_wallet: Address = claimed_wallet_line
+        .parse()
         .map_err(|_| "Invalid wallet address")?;
 
-    // Consume nonce (single-use)
     let valid_nonce = state.nonces.lock().unwrap().remove(&nonce);
+
     if valid_nonce.is_none() {
         return Err("Invalid or expired nonce".into());
     }
 
-    // Verify signature
-    let sig: Signature = payload.signature.parse()
+    let sig: Signature = payload
+        .signature
+        .parse()
         .map_err(|_| "Invalid signature format")?;
 
     let recovered = sig
@@ -93,18 +177,20 @@ pub async fn verify_siwe(
         return Err("Signature does not match claimed address".into());
     }
 
-    // Create session
     let session_id = Uuid::new_v4().to_string();
-    state.sessions.lock().unwrap()
+
+    state
+        .sessions
+        .lock()
+        .unwrap()
         .insert(session_id.clone(), recovered.to_string());
 
-    // Set HTTP-only session cookie
     cookies.add(
         Cookie::build(("trust_session", session_id))
             .path("/")
             .http_only(true)
-            .secure(false) // set to true in production with HTTPS
-            .into()
+            .secure(false)
+            .into(),
     );
 
     Ok(Json(VerifyResponse {

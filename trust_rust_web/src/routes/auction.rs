@@ -1,14 +1,56 @@
-use axum::{extract::State, Json};
-use serde::Deserialize;
+/*
+ * auction.rs
+ *
+ * Purpose:
+ *     Provides HTTP handlers for auction creation endpoints.
+ *
+ * Responsibilities:
+ *     - Validate authenticated user sessions
+ *     - Parse auction creation request payloads
+ *     - Convert request data into blockchain types
+ *     - Invoke auction creation client functions
+ *     - Return JSON API responses
+ *
+ * Non-Responsibilities:
+ *     - SIWE authentication verification
+ *     - Smart contract interaction internals
+ *     - Provider initialization
+ *     - Persistent data storage
+ *
+ * Architecture:
+ *
+ *      Browser / Frontend
+ *              ↓
+ *         auction.rs
+ *              ↓
+ *          AppState
+ *              ↓
+ *      trust_rust_client
+ *              ↓
+ *       Auction Contract
+ */
+
 use std::sync::Arc;
-use tower_cookies::Cookies;
 
 use alloy::primitives::{Address, U256};
+
+use axum::{extract::State, Json};
+
+use serde::Deserialize;
+
+use tower_cookies::Cookies;
 
 use trust_rust_client::create_auction_with_default_confirmation;
 
 use crate::state::AppState;
 
+/* -------------------------------------------------------------------------- */
+/*                               Request Types                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Request payload used to create a new auction.
+ */
 #[derive(Deserialize)]
 pub struct CreateAuctionRequest {
     pub bidding_time_seconds: u64,
@@ -18,6 +60,43 @@ pub struct CreateAuctionRequest {
     pub description: String,
 }
 
+/* -------------------------------------------------------------------------- */
+/*                              Route Handlers                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Creates a new auction through the authenticated seller account.
+ *
+ * This handler:
+ *     - Validates the active user session
+ *     - Retrieves the authenticated wallet address
+ *     - Parses the starting bid amount
+ *     - Invokes the blockchain auction creation flow
+ *     - Returns auction creation metadata as JSON
+ *
+ * # Arguments
+ *
+ * * `state` - Shared Axum application state.
+ * * `cookies` - Cookie jar containing the session cookie.
+ * * `req` - Auction creation request payload.
+ *
+ * # Returns
+ *
+ * JSON response containing:
+ *     - success status
+ *     - auction address
+ *     - transaction hash
+ *     - seller wallet address
+ *
+ * # Errors
+ *
+ * Returns a string error if:
+ *     - The user is not authenticated
+ *     - The session is invalid or expired
+ *     - The seller address is invalid
+ *     - The starting bid cannot be parsed
+ *     - Auction creation fails
+ */
 pub async fn create_auction_handler(
     State(state): State<Arc<AppState>>,
     cookies: Cookies,
@@ -42,11 +121,8 @@ pub async fn create_auction_handler(
         .parse()
         .map_err(|_| "Invalid seller address".to_string())?;
 
-    let starting_bid = U256::from_str_radix(
-        &req.starting_bid_wei,
-        10,
-    )
-    .map_err(|_| "Invalid starting bid amount".to_string())?;
+    let starting_bid = U256::from_str_radix(&req.starting_bid_wei, 10)
+        .map_err(|_| "Invalid starting bid amount".to_string())?;
 
     let result = create_auction_with_default_confirmation(
         &*state.rpc_provider,

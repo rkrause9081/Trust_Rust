@@ -1,3 +1,33 @@
+/*
+ * create_auction.rs
+ *
+ * Purpose:
+ *     Provides auction creation utilities and event decoding logic
+ *     for interacting with the auction factory contract.
+ *
+ * Responsibilities:
+ *     - Encode createAuction contract calls
+ *     - Submit auction creation transactions
+ *     - Decode AuctionCreated events from receipts
+ *     - Return strongly-typed auction creation results
+ *
+ * Non-Responsibilities:
+ *     - HTTP request handling
+ *     - Environment configuration
+ *     - Wallet management
+ *     - Provider initialization
+ *
+ * Architecture:
+ *
+ *     main.rs / handlers
+ *              ↓
+ *      create_auction.rs
+ *              ↓
+ *      Auction Factory Contract
+ *              ↓
+ *      AuctionCreated Event
+ */
+
 use alloy::{
     network::TransactionBuilder,
     primitives::{Address, U256},
@@ -7,7 +37,11 @@ use alloy::{
     sol_types::{SolCall, SolEvent},
 };
 
-use eyre::{eyre, Result};
+use eyre::{Result, eyre};
+
+/* -------------------------------------------------------------------------- */
+/*                          Solidity Contract Bindings                        */
+/* -------------------------------------------------------------------------- */
 
 sol! {
     function createAuction(
@@ -29,6 +63,17 @@ sol! {
     );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               Result Structs                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Strongly-typed auction creation result.
+ *
+ * Contains transaction metadata and decoded event data
+ * returned from the AuctionCreated event emitted by
+ * the factory contract.
+ */
 #[derive(Debug, Clone)]
 pub struct CreateAuctionResult {
     pub tx_hash: String,
@@ -41,6 +86,42 @@ pub struct CreateAuctionResult {
     pub confirmation_window: U256,
 }
 
+/* -------------------------------------------------------------------------- */
+/*                           Auction Creation Logic                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Creates a new auction through the factory contract.
+ *
+ * Encodes the createAuction contract call, submits the
+ * transaction to the blockchain, then scans the transaction
+ * receipt for the emitted AuctionCreated event.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ * * `seller` - Seller wallet address.
+ * * `bidding_time_seconds` - Auction bidding duration.
+ * * `starting_bid_wei` - Initial auction bid amount in wei.
+ * * `confirmation_window` - Post-auction confirmation period.
+ * * `title` - Auction title.
+ * * `description` - Auction description.
+ *
+ * # Returns
+ *
+ * Strongly-typed `CreateAuctionResult` containing
+ * decoded blockchain event data.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - Transaction submission fails
+ *     - Receipt retrieval fails
+ *     - Event decoding fails
+ *     - AuctionCreated event is not found
+ */
+#[allow(clippy::too_many_arguments)]
 pub async fn create_auction<P>(
     provider: &P,
     factory_address: Address,
@@ -68,11 +149,7 @@ where
         .with_to(factory_address)
         .with_input(calldata);
 
-    let receipt = provider
-        .send_transaction(tx)
-        .await?
-        .get_receipt()
-        .await?;
+    let receipt = provider.send_transaction(tx).await?.get_receipt().await?;
 
     for log in receipt.logs() {
         if let Ok(decoded) = AuctionCreated::decode_log(&log.inner) {
@@ -96,6 +173,33 @@ where
     ))
 }
 
+/**
+ * Creates a new auction using the default confirmation window.
+ *
+ * Uses a default confirmation period of:
+ *     259,200 seconds (72 hours)
+ *
+ * This is a convenience wrapper around `create_auction()`
+ * to simplify common auction creation flows.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `factory_address` - Auction factory contract address.
+ * * `seller` - Seller wallet address.
+ * * `bidding_time_seconds` - Auction bidding duration.
+ * * `starting_bid_wei` - Initial auction bid amount in wei.
+ * * `title` - Auction title.
+ * * `description` - Auction description.
+ *
+ * # Returns
+ *
+ * Strongly-typed `CreateAuctionResult`.
+ *
+ * # Errors
+ *
+ * Propagates any errors returned by `create_auction()`.
+ */
 pub async fn create_auction_with_default_confirmation<P>(
     provider: &P,
     factory_address: Address,

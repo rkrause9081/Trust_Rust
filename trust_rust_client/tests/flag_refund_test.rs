@@ -2,82 +2,47 @@
  * flag_refund_test.rs
  *
  * Purpose:
- *     Integration test for the admin refund flow + buyer withdrawal.
- *
- *     This test verifies that:
- *         - flagRefund() correctly queues the winning bid in pendingReturns
- *         - withdraw() successfully transfers the queued funds to the buyer
- *         - Balance changes are visible on-chain
- *
- *     It does NOT:
- *         - Test normal payment paths (confirmReceipt / claimAfterTimeout)
- *         - Test bidding behavior
- *         - Deploy contracts
- *
- * Requirements:
- *     A local Hardhat node must be running.
- *     A SimpleAuction contract must be deployed and ended.
- *
- * Expected .env values:
- *     RPC_URL
- *     AUCTION_ADDRESS
- *     BUYER_ADDRESS
- *     ADMIN_ADDRESS
- *
- * System Position:
- *
- *     cargo test
- *         ↓
- *     flag_refund_test.rs  ← THIS FILE (integration test)
- *         ↓
- *     escrow.rs  +  withdraw.rs
- *         ↓
- *     SimpleAuction.sol (AuctionEscrow + AuctionSettlement)
- *         ↓
- *     Hardhat / Ethereum node
+ *     Independent integration test for admin refund flow and
+ *     buyer withdrawal.
  */
 
-use alloy::providers::Provider;
-use serde_json::Value;
+mod common;
+
+use common::{
+    DEFAULT_BIDDING_TIME_SECONDS, connect_test_provider, create_test_auction_with_bid,
+    get_admin_test_address, get_bidder_address, get_factory_test_address, get_seller_test_address,
+    hardhat_advance_time, load_test_env, print_balance,
+};
 use trust_rust_client::{
-    auction_loader::{connect_provider, parse_address},
-    config::{get_admin_address, get_rpc_url},
     escrow::{end_auction, flag_refund},
     withdraw::withdraw,
 };
 
-async fn print_balance<P: Provider>(provider: &P, label: &str, address: alloy::primitives::Address) {
-    if let Ok(balance) = provider.get_balance(address).await {
-        let eth = balance.to::<u128>() as f64 / 1e18;
-        println!("  {}: {:.6} ETH", label, eth);
-    }
-}
-
 #[tokio::test]
 async fn test_flag_refund() {
-    dotenvy::dotenv().ok();
+    load_test_env();
 
     println!("\n================ FLAG REFUND + WITHDRAW TEST START ================");
 
-    let rpc_url = get_rpc_url().expect("RPC_URL missing");
-    let auction_address = parse_address(
-        &std::env::var("AUCTION_ADDRESS").expect("AUCTION_ADDRESS missing")
-    )
-    .expect("invalid auction address");
-
-    let buyer_address = parse_address(
-        &std::env::var("BUYER_ADDRESS").expect("BUYER_ADDRESS missing")
-    )
-    .expect("invalid buyer address");
-
-    let admin_address = parse_address(
-        &get_admin_address().expect("ADMIN_ADDRESS missing")
-    )
-    .expect("invalid admin address");
-
-    let provider = connect_provider(&rpc_url)
+    let provider = connect_test_provider()
         .await
         .expect("failed to connect provider");
+
+    let factory_address = get_factory_test_address();
+    let seller_address = get_seller_test_address();
+    let buyer_address = get_bidder_address();
+    let admin_address = get_admin_test_address();
+
+    let created = create_test_auction_with_bid(
+        &provider,
+        factory_address,
+        seller_address,
+        buyer_address,
+        "Flag Refund Test Auction",
+    )
+    .await;
+
+    let auction_address = created.auction_address;
 
     println!("Auction: {:?}", auction_address);
     println!("Buyer:   {:?}", buyer_address);
@@ -86,34 +51,42 @@ async fn test_flag_refund() {
     println!("\n=== BALANCES BEFORE ===");
     print_balance(&provider, "Buyer", buyer_address).await;
 
-    // Setup
     println!("\nFast-forwarding + ending auction...");
-    let _: Value = provider
-        .raw_request("evm_increaseTime".into(), ["3600".to_string()])
-        .await
-        .expect("time failed");
 
-    let _: Value = provider
-        .raw_request("evm_mine".into(), Vec::<()>::new())
+    hardhat_advance_time(&provider, DEFAULT_BIDDING_TIME_SECONDS)
         .await
-        .expect("mine failed");
+        .expect("time advance failed");
 
     let _ = end_auction(&provider, auction_address, buyer_address)
         .await
         .expect("end_auction failed");
 
-    // Flag refund
-    println!("\nAdmin calling flagRefund()...");
     let flag_result = flag_refund(&provider, auction_address, admin_address)
         .await
         .expect("flag_refund failed");
-    println!("Flag result: {:#?}", flag_result);
 
-    // Buyer withdraws
-    println!("\nBuyer calling withdraw() to collect refund...");
+    assert!(
+        !flag_result.tx_hash.is_empty(),
+        "flag refund transaction hash should not be empty"
+    );
+
+    assert!(flag_result.refund_flagged, "refund should be flagged");
+
     let withdraw_result = withdraw(&provider, auction_address, buyer_address)
         .await
         .expect("withdraw failed");
+
+    assert!(
+        !withdraw_result.tx_hash.is_empty(),
+        "withdraw transaction hash should not be empty"
+    );
+
+    assert!(
+        withdraw_result.amount_withdrawn_wei > alloy::primitives::U256::ZERO,
+        "withdrawn amount should be greater than zero"
+    );
+
+    println!("Flag result: {:#?}", flag_result);
     println!("Withdraw result: {:#?}", withdraw_result);
 
     println!("\n=== BALANCES AFTER WITHDRAW ===");
