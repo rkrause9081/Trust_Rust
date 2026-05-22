@@ -2,7 +2,32 @@
  * escrow.rs
  *
  * Purpose:
- *     On-chain escrow operations for post-auction settlement.
+ *     Provides escrow settlement and post-auction lifecycle
+ *     interaction utilities.
+ *
+ * Responsibilities:
+ *     - Confirm auction receipt
+ *     - Handle seller timeout claims
+ *     - Flag escrow refunds
+ *     - Query escrow status
+ *     - Query escrow permissions
+ *     - Execute settlement-related transactions
+ *
+ * Non-Responsibilities:
+ *     - HTTP request handling
+ *     - Provider initialization
+ *     - Environment configuration
+ *     - Auction creation
+ *
+ * Architecture:
+ *
+ *     main.rs / handlers
+ *              ↓
+ *          escrow.rs
+ *              ↓
+ *       Auction Contract
+ *              ↓
+ *      Escrow State Logic
  */
 
 use alloy::{
@@ -15,6 +40,10 @@ use alloy::{
 };
 
 use eyre::Result;
+
+/* -------------------------------------------------------------------------- */
+/*                          Solidity Contract Bindings                        */
+/* -------------------------------------------------------------------------- */
 
 sol! {
     function confirmReceipt() external;
@@ -42,24 +71,45 @@ sol! {
         returns (bool);
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               Result Structs                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Result returned after confirming auction receipt.
+ */
 #[derive(Debug)]
 pub struct ConfirmReceiptResult {
     pub tx_hash: String,
     pub escrow_settled: bool,
 }
 
+/**
+ * Result returned after claiming escrow settlement
+ * following confirmation timeout expiration.
+ */
 #[derive(Debug)]
 pub struct ClaimAfterTimeoutResult {
     pub tx_hash: String,
     pub escrow_settled: bool,
 }
 
+/**
+ * Result returned after flagging an escrow refund.
+ */
 #[derive(Debug)]
 pub struct FlagRefundResult {
     pub tx_hash: String,
     pub refund_flagged: bool,
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               Escrow Status                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Represents the current escrow lifecycle state.
+ */
 #[derive(Debug, Clone, Copy)]
 pub enum EscrowStatus {
     ActiveAuction,
@@ -70,6 +120,19 @@ pub enum EscrowStatus {
 }
 
 impl EscrowStatus {
+    /**
+     * Converts a raw contract enum value into a typed `EscrowStatus`.
+     *
+     * Unknown values default to `ActiveAuction`.
+     *
+     * # Arguments
+     *
+     * * `value` - Raw uint8 status value returned by the contract.
+     *
+     * # Returns
+     *
+     * Typed `EscrowStatus`.
+     */
     pub fn from_u8(value: u8) -> Self {
         match value {
             0 => Self::ActiveAuction,
@@ -82,6 +145,32 @@ impl EscrowStatus {
     }
 }
 
+/* -------------------------------------------------------------------------- */
+/*                           Escrow Transaction Logic                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Confirms successful auction receipt.
+ *
+ * Typically called by the winning bidder after receiving
+ * the auctioned item, allowing escrow settlement completion.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ * * `bidder` - Winning bidder wallet address.
+ *
+ * # Returns
+ *
+ * `ConfirmReceiptResult` containing settlement metadata.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - Transaction submission fails
+ *     - Receipt retrieval fails
+ */
 pub async fn confirm_receipt<P>(
     provider: &P,
     contract_address: Address,
@@ -105,6 +194,29 @@ where
     })
 }
 
+/**
+ * Claims escrow settlement after the buyer confirmation
+ * timeout window expires.
+ *
+ * Typically called by the seller if the buyer fails
+ * to confirm receipt within the configured confirmation window.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ * * `seller` - Seller wallet address.
+ *
+ * # Returns
+ *
+ * `ClaimAfterTimeoutResult` containing settlement metadata.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - Transaction submission fails
+ *     - Receipt retrieval fails
+ */
 pub async fn claim_after_timeout<P>(
     provider: &P,
     contract_address: Address,
@@ -128,6 +240,28 @@ where
     })
 }
 
+/**
+ * Flags an escrow refund through an admin-authorized action.
+ *
+ * Typically used for dispute resolution or administrative
+ * intervention during escrow settlement.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ * * `admin` - Authorized admin wallet address.
+ *
+ * # Returns
+ *
+ * `FlagRefundResult` containing refund metadata.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - Transaction submission fails
+ *     - Receipt retrieval fails
+ */
 pub async fn flag_refund<P>(
     provider: &P,
     contract_address: Address,
@@ -151,6 +285,28 @@ where
     })
 }
 
+/* -------------------------------------------------------------------------- */
+/*                              Escrow Queries                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Retrieves the remaining buyer confirmation window time.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ *
+ * # Returns
+ *
+ * Remaining confirmation time in seconds.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
 pub async fn get_time_remaining_for_confirmation<P>(
     provider: &P,
     contract_address: Address,
@@ -166,14 +322,32 @@ where
 
     let response = provider.call(tx).await?;
 
-    let seconds_remaining: U256 =
-        timeRemainingForConfirmationCall::abi_decode_returns(&response)?;
+    let seconds_remaining: U256 = timeRemainingForConfirmationCall::abi_decode_returns(&response)?;
 
     let seconds = seconds_remaining.try_into().unwrap_or(0u64);
 
     Ok(seconds)
 }
 
+/**
+ * Ends an auction after the bidding period expires.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ * * `caller` - Wallet address ending the auction.
+ *
+ * # Returns
+ *
+ * Transaction hash of the auction finalization transaction.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - Transaction submission fails
+ *     - Receipt retrieval fails
+ */
 pub async fn end_auction<P>(
     provider: &P,
     contract_address: Address,
@@ -194,10 +368,25 @@ where
     Ok(format!("{:?}", receipt.transaction_hash))
 }
 
-pub async fn get_escrow_status<P>(
-    provider: &P,
-    contract_address: Address,
-) -> Result<EscrowStatus>
+/**
+ * Retrieves the current escrow lifecycle status.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ *
+ * # Returns
+ *
+ * Typed `EscrowStatus`.
+ *
+ * # Errors
+ *
+ * Returns an error if:
+ *     - RPC call fails
+ *     - Return decoding fails
+ */
+pub async fn get_escrow_status<P>(provider: &P, contract_address: Address) -> Result<EscrowStatus>
 where
     P: Provider + ?Sized,
 {
@@ -214,6 +403,27 @@ where
     Ok(EscrowStatus::from_u8(raw))
 }
 
+/* -------------------------------------------------------------------------- */
+/*                          Escrow Permission Checks                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Checks whether a caller can confirm receipt.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ * * `caller` - Wallet address being checked.
+ *
+ * # Returns
+ *
+ * `true` if receipt confirmation is allowed.
+ *
+ * # Errors
+ *
+ * Returns an error if the RPC call or decoding fails.
+ */
 pub async fn can_confirm_receipt<P>(
     provider: &P,
     contract_address: Address,
@@ -233,6 +443,24 @@ where
     Ok(canConfirmReceiptCall::abi_decode_returns(&response)?)
 }
 
+/**
+ * Checks whether a caller can claim escrow settlement
+ * after timeout expiration.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ * * `caller` - Wallet address being checked.
+ *
+ * # Returns
+ *
+ * `true` if timeout claiming is allowed.
+ *
+ * # Errors
+ *
+ * Returns an error if the RPC call or decoding fails.
+ */
 pub async fn can_claim_timeout<P>(
     provider: &P,
     contract_address: Address,
@@ -252,6 +480,23 @@ where
     Ok(canClaimTimeoutCall::abi_decode_returns(&response)?)
 }
 
+/**
+ * Checks whether a caller can flag a refund.
+ *
+ * # Arguments
+ *
+ * * `provider` - Active Alloy provider instance.
+ * * `contract_address` - Auction contract address.
+ * * `caller` - Wallet address being checked.
+ *
+ * # Returns
+ *
+ * `true` if refund flagging is allowed.
+ *
+ * # Errors
+ *
+ * Returns an error if the RPC call or decoding fails.
+ */
 pub async fn can_flag_refund<P>(
     provider: &P,
     contract_address: Address,
