@@ -1,9 +1,56 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+/*
+ * AuctionRegistry.sol
+ *
+ * Purpose:
+ *     Stores and exposes registry metadata for auctions deployed
+ *     through the AuctionFactory.
+ *
+ * Responsibilities:
+ *     - Store deployed auction addresses
+ *     - Store searchable auction metadata
+ *     - Track auctions by seller
+ *     - Track highest bid metadata for frontend queries
+ *     - Provide registry read/query functions
+ *
+ * Non-Responsibilities:
+ *     - Deploying auctions
+ *     - Enforcing auction bidding rules
+ *     - Holding escrow funds
+ *     - Processing settlement or withdrawals
+ *
+ * Architecture:
+ *
+ *      AuctionFactory
+ *            ↓
+ *      AuctionRegistry
+ *            ↓
+ *      Registry Read APIs
+ */
+
+/* -------------------------------------------------------------------------- */
+/*                              Auction Registry                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @title AuctionRegistry
+ * @notice Shared registry storage and read/query layer for deployed auctions.
+ * @dev Intended to be inherited by AuctionFactory.
+ */
 abstract contract AuctionRegistry {
+    /* ---------------------------------------------------------------------- */
+    /*                              State Variables                           */
+    /* ---------------------------------------------------------------------- */
+
+    /// @notice List of all auction contracts deployed through the factory.
     address[] internal auctions;
 
+    /**
+     * @notice Registry metadata stored for each deployed auction.
+     * @dev Mirrors the structure decoded by the Rust registry client.
+     */
     struct AuctionRegistryItem {
         address auctionAddress;
         address seller;
@@ -22,9 +69,31 @@ abstract contract AuctionRegistry {
         string imagePlaceholder;
     }
 
+    /// @notice Maps auction address to registry metadata.
     mapping(address => AuctionRegistryItem) internal auctionRegistry;
+
+    /// @notice Maps seller address to auctions created by that seller.
     mapping(address => address[]) internal auctionsBySeller;
 
+    /* ---------------------------------------------------------------------- */
+    /*                             Internal Functions                         */
+    /* ---------------------------------------------------------------------- */
+
+    /**
+     * @notice Registers a newly deployed auction.
+     * @dev Called by AuctionFactory immediately after deploying SimpleAuction.
+     *
+     * @param auctionAddress Address of the deployed auction contract.
+     * @param seller Address that created the auction.
+     * @param biddingTimeSeconds Auction bidding duration in seconds.
+     * @param endTime Timestamp when bidding ends.
+     * @param startingBid Minimum bid required to participate.
+     * @param admin Factory-level admin address.
+     * @param confirmationWindow Buyer confirmation timeout window.
+     * @param title Human-readable auction title.
+     * @param description Human-readable auction description.
+     * @param imagePlaceholder Placeholder image metadata.
+     */
     function _registerAuction(
         address auctionAddress,
         address seller,
@@ -59,6 +128,18 @@ abstract contract AuctionRegistry {
         });
     }
 
+    /* ---------------------------------------------------------------------- */
+    /*                            External Mutations                          */
+    /* ---------------------------------------------------------------------- */
+
+    /**
+     * @notice Updates registry metadata after a successful bid.
+     * @dev Only the auction contract itself may update its registry entry.
+     *
+     * @param auctionAddress Auction contract address being updated.
+     * @param bidder Address of the new highest bidder.
+     * @param newBidAmount New highest bid amount.
+     */
     function updateHighestBid(
         address auctionAddress,
         address bidder,
@@ -76,37 +157,67 @@ abstract contract AuctionRegistry {
         item.bidCount += 1;
     }
 
+    /* ---------------------------------------------------------------------- */
+    /*                              View Functions                            */
+    /* ---------------------------------------------------------------------- */
+
+    /**
+     * @notice Returns all registered auction addresses.
+     *
+     * @return Array of auction contract addresses.
+     */
     function getAuctions() external view returns (address[] memory) {
         return auctions;
     }
 
+    /**
+     * @notice Returns the total number of registered auctions.
+     *
+     * @return Number of auctions registered through the factory.
+     */
     function auctionCount() external view returns (uint256) {
         return auctions.length;
     }
 
-    function getAuctionRegistryItem(address auctionAddress)
-        external
-        view
-        returns (AuctionRegistryItem memory)
-    {
+    /**
+     * @notice Returns registry metadata for a specific auction.
+     *
+     * @param auctionAddress Auction contract address.
+     * @return Registry item for the requested auction.
+     */
+    function getAuctionRegistryItem(
+        address auctionAddress
+    ) external view returns (AuctionRegistryItem memory) {
         require(auctionRegistry[auctionAddress].exists, "Auction not found");
+
         return auctionRegistry[auctionAddress];
     }
 
-    function getAuctionByIndex(uint256 index)
-        external
-        view
-        returns (AuctionRegistryItem memory)
-    {
+    /**
+     * @notice Returns registry metadata by array index.
+     *
+     * @param index Index inside the auctions array.
+     * @return Registry item at the requested index.
+     */
+    function getAuctionByIndex(
+        uint256 index
+    ) external view returns (AuctionRegistryItem memory) {
         require(index < auctions.length, "Index out of bounds");
+
         return auctionRegistry[auctions[index]];
     }
 
-    function getAuctionsPaginated(uint256 offset, uint256 limit)
-        external
-        view
-        returns (AuctionRegistryItem[] memory)
-    {
+    /**
+     * @notice Returns a paginated slice of auction registry entries.
+     *
+     * @param offset Starting index.
+     * @param limit Maximum number of entries to return.
+     * @return Page of registry items.
+     */
+    function getAuctionsPaginated(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (AuctionRegistryItem[] memory) {
         if (offset >= auctions.length) {
             return new AuctionRegistryItem[](0);
         }
@@ -124,19 +235,27 @@ abstract contract AuctionRegistry {
         return page;
     }
 
-    function getAuctionsBySeller(address seller)
-        external
-        view
-        returns (address[] memory)
-    {
+    /**
+     * @notice Returns auctions created by a seller.
+     *
+     * @param seller Seller wallet address.
+     * @return Array of auction addresses created by the seller.
+     */
+    function getAuctionsBySeller(
+        address seller
+    ) external view returns (address[] memory) {
         return auctionsBySeller[seller];
     }
 
-    function isRegisteredAuction(address auctionAddress)
-        external
-        view
-        returns (bool)
-    {
+    /**
+     * @notice Checks whether an auction address is registered.
+     *
+     * @param auctionAddress Auction contract address.
+     * @return True if the auction exists in the registry.
+     */
+    function isRegisteredAuction(
+        address auctionAddress
+    ) external view returns (bool) {
         return auctionRegistry[auctionAddress].exists;
     }
 }
