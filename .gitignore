@@ -1,6 +1,2 @@
-/target
-**/*.rs.bk
-.env
-.env.*
 node_modules
-target/
+

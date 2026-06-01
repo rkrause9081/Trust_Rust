@@ -51,15 +51,11 @@ use eyre::Result;
  *
  * Returns an error if the RPC connection fails.
  */
-    pub async fn connect_provider(
-    provider_url: &str,
-    ) -> Result<impl Provider + use<>> {
-    let provider = ProviderBuilder::new()
-        .connect(provider_url)
-        .await?;
+pub async fn connect_provider(provider_url: &str) -> Result<impl Provider + use<>> {
+    let provider = ProviderBuilder::new().connect(provider_url).await?;
 
     Ok(provider)
-    }
+}
 
 /* -------------------------------------------------------------------------- */
 /*                              Address Helpers                               */

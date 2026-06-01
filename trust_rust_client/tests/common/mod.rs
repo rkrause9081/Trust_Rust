@@ -238,9 +238,7 @@ where
 
     let method = method.to_string();
 
-    let _ = provider
-    .raw_request_dyn(method.into(), &params)
-    .await?;
+    let _ = provider.raw_request_dyn(method.into(), &params).await?;
 
     Ok(())
 }
