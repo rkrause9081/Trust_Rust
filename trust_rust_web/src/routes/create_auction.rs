@@ -1,232 +1,178 @@
 /*
- * create_auction.rs
+ * routes/auction.rs
  *
- * Purpose:
- *     On-chain auction creation through the AuctionFactory contract.
- *
- *     This module handles all transaction sending and event decoding
- *     related to deploying new auction instances from the factory.
- *
- *     It does NOT:
- *         - Handle HTTP requests
- *         - Manage provider connections (passed in from main.rs)
- *         - Load contract ABIs at runtime (sol!() macro handles this at compile time)
- *         - Manage application-level validation beyond transaction requirements
- *
- *     It is called by:
- *         main.rs / Axum handlers    (controller / orchestration layer)
- *
- * System Position:
- *
- *     Axum route handler / main.rs  (HTTP + orchestration layer)
- *         ↓
- *     create_auction.rs  ← THIS FILE (factory write transaction + event decode)
- *         ↓
- *     auction_loader.rs  (provider connection)
- *         ↓
- *     AuctionFactory.sol  (on-chain deployment contract)
- *         ↓
- *     SimpleAuction.sol  (deployed auction instance)
- *         ↓
- *     Hardhat / Ethereum node
+ * Axum route handler that connects the frontend create_auction.js form
+ * to the trust_rust_client::create_auction.rs blockchain client helper.
  */
 
-use alloy::{
-    network::TransactionBuilder,
-    primitives::{Address, U256},
-    providers::Provider,
-    rpc::types::TransactionRequest,
-    sol,
-    sol_types::{SolCall, SolEvent},
+use std::sync::Arc;
+
+use alloy::primitives::{Address, U256};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
 };
-use eyre::{eyre, Result};
+use serde::{Deserialize, Serialize};
+use tower_cookies::Cookies;
 
-// Define the AuctionFactory interface at compile time.
-// The sol!() macro generates strongly typed Rust structs for:
-//     - createAuctionCall
-//     - AuctionCreated
-//
-// This avoids loading ABI JSON at runtime and lets the compiler catch
-// invalid function/event signatures early.
-sol! {
-    function createAuction(
-        uint256 biddingTimeSeconds,
-        uint256 startingBid,
-        uint256 confirmationWindow
-    ) external returns (address);
+use crate::state::AppState;
 
-    event AuctionCreated(
-        address indexed auctionAddress,
-        address indexed seller,
-        uint256 biddingTimeSeconds,
-        uint256 endTime,
-        uint256 startingBid,
-        address admin,
-        uint256 confirmationWindow
-    );
+// Adjust this import path if your blockchain client module is named differently.
+use trust_rust_client::create_auction::create_auction_with_default_confirmation;
+
+/* -------------------------------------------------------------------------- */
+/*                              Request / Response                            */
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug, Deserialize)]
+pub struct CreateAuctionRequest {
+    pub bidding_time_seconds: u64,
+    pub starting_bid_wei: String,
+    pub title: String,
+    pub description: String,
 }
 
-/// Structured result returned after a successful auction creation transaction.
-///
-/// Holds the confirmed transaction hash, the newly deployed auction address,
-/// and useful registry metadata emitted by the AuctionFactory contract.
-#[derive(Debug, Clone)]
-pub struct CreateAuctionResult {
-    /// Transaction hash of the submitted factory transaction.
+#[derive(Debug, Serialize)]
+pub struct CreateAuctionResponse {
     pub tx_hash: String,
-
-    /// Address of the newly deployed SimpleAuction contract.
-    pub auction_address: Address,
-
-    /// Seller address that created the auction.
-    pub seller: Address,
-
-    /// Duration of the bidding period in seconds.
-    pub bidding_time_seconds: U256,
-
-    /// Auction end timestamp emitted by the factory.
-    pub end_time: U256,
-
-    /// Minimum opening bid required by the auction, in wei.
-    pub starting_bid_wei: U256,
-
-    /// Factory/admin address assigned to the auction.
-    pub admin: Address,
-
-    /// Buyer confirmation window in seconds.
-    pub confirmation_window: U256,
+    pub auction_address: String,
+    pub seller: String,
+    pub bidding_time_seconds: String,
+    pub end_time: String,
+    pub starting_bid_wei: String,
+    pub admin: String,
+    pub confirmation_window: String,
 }
 
-/// Create a new auction by calling AuctionFactory.createAuction().
-///
-/// Sends a transaction to the factory contract, waits for the receipt,
-/// then extracts the newly deployed auction address from the AuctionCreated event.
-///
-/// The provider is generic over P: Provider so this function works with
-/// any Alloy provider (HTTP, WebSocket, mock for tests, etc.) without
-/// needing to know the concrete type.
-///
-/// Parameters:
-///     provider:             Active Alloy provider for sending transactions.
-///     factory_address:      On-chain address of the deployed AuctionFactory contract.
-///     seller:               Address that creates the auction and sends the transaction.
-///     bidding_time_seconds: How long the auction should run, in seconds.
-///     starting_bid_wei:     Minimum opening bid, in wei.
-///     confirmation_window:  Seconds the buyer has to confirm receipt before timeout logic.
-///
-/// Returns:
-///     CreateAuctionResult:
-///         Contains the tx hash, deployed auction address, and event metadata.
-///
-/// Errors:
-///     Returns Err if:
-///         - the transaction fails or reverts
-///         - the RPC call fails
-///         - the AuctionCreated event is missing from the receipt
-///         - the AuctionCreated event cannot be decoded
-pub async fn create_auction<P>(
-    provider: &P,
-    factory_address: Address,
-    seller: Address,
-    bidding_time_seconds: U256,
-    starting_bid_wei: U256,
-    confirmation_window: U256,
-) -> Result<CreateAuctionResult>
-where
-    P: Provider,
-{
-    // Encode the createAuction(...) function call into ABI calldata.
-    // createAuctionCall was generated by the sol!() macro above.
-    let calldata = createAuctionCall {
-        biddingTimeSeconds: bidding_time_seconds,
-        startingBid: starting_bid_wei,
-        confirmationWindow: confirmation_window,
-    }
-    .abi_encode();
-
-    // Build the transaction request.
-    //
-    // No .with_value() is used here because createAuction() itself is not payable.
-    // The starting bid is passed as a uint256 constructor/config value, not ETH sent
-    // to the factory transaction.
-    let tx = TransactionRequest::default()
-        .with_from(seller)
-        .with_to(factory_address)
-        .with_input(calldata);
-
-    // Send the transaction and wait until it is mined.
-    //
-    // send_transaction() submits the transaction to the node.
-    // get_receipt() waits for confirmation and returns the receipt with logs.
-    let receipt = provider.send_transaction(tx).await?.get_receipt().await?;
-
-    // Search the transaction logs for the AuctionCreated event.
-    //
-    // The factory emits this event after deploying and registering the auction.
-    // This event is the cleanest source of truth for the newly deployed address.
-    for log in receipt.logs() {
-        // Attempt to decode each log as AuctionCreated.
-        // Logs from unrelated contracts/events will fail to decode and are skipped.
-        if let Ok(decoded) = AuctionCreated::decode_log(log, true) {
-            let event = decoded.data;
-
-            return Ok(CreateAuctionResult {
-                tx_hash: format!("{:?}", receipt.transaction_hash),
-                auction_address: event.auctionAddress,
-                seller: event.seller,
-                bidding_time_seconds: event.biddingTimeSeconds,
-                end_time: event.endTime,
-                starting_bid_wei: event.startingBid,
-                admin: event.admin,
-                confirmation_window: event.confirmationWindow,
-            });
-        }
-    }
-
-    // If no AuctionCreated event was found, the transaction may have succeeded
-    // but the expected factory event was not emitted or the event signature changed.
-    Err(eyre!(
-        "AuctionCreated event not found in AuctionFactory transaction receipt"
-    ))
+#[derive(Debug, Serialize)]
+struct ErrorResponse {
+    error: String,
 }
 
-/// Convenience helper for creating an auction with a default confirmation window.
-///
-/// Default confirmation window:
-///     259200 seconds = 3 days
-///
-/// This mirrors the Python version's default behavior while keeping the main
-/// create_auction() function explicit and flexible.
-///
-/// Parameters:
-///     provider:             Active Alloy provider for sending transactions.
-///     factory_address:      On-chain address of the deployed AuctionFactory contract.
-///     seller:               Address that creates the auction and sends the transaction.
-///     bidding_time_seconds: How long the auction should run, in seconds.
-///     starting_bid_wei:     Minimum opening bid, in wei.
-///
-/// Returns:
-///     CreateAuctionResult:
-///         Contains the tx hash, deployed auction address, and event metadata.
-pub async fn create_auction_with_default_confirmation<P>(
-    provider: &P,
-    factory_address: Address,
-    seller: Address,
-    bidding_time_seconds: U256,
-    starting_bid_wei: U256,
-) -> Result<CreateAuctionResult>
-where
-    P: Provider,
-{
-    let default_confirmation_window = U256::from(259_200u64);
+/* -------------------------------------------------------------------------- */
+/*                                Route Handler                               */
+/* -------------------------------------------------------------------------- */
 
-    create_auction(
-        provider,
-        factory_address,
+pub async fn create_auction_handler(
+    State(state): State<Arc<AppState>>,
+    cookies: Cookies,
+    Json(payload): Json<CreateAuctionRequest>,
+) -> Response {
+    match create_auction_from_request(state, cookies, payload).await {
+        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
+        Err((status, message)) => (
+            status,
+            Json(ErrorResponse {
+                error: message,
+            }),
+        )
+            .into_response(),
+    }
+}
+
+async fn create_auction_from_request(
+    state: Arc<AppState>,
+    cookies: Cookies,
+    payload: CreateAuctionRequest,
+) -> Result<CreateAuctionResponse, (StatusCode, String)> {
+    validate_payload(&payload)?;
+
+    let seller = get_seller_from_cookies(&cookies)?;
+
+    let bidding_time_seconds = U256::from(payload.bidding_time_seconds);
+
+    let starting_bid_wei = U256::from_str_radix(payload.starting_bid_wei.trim(), 10)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid starting_bid_wei".to_string()))?;
+
+    /*
+     * These field names assume your AppState stores:
+     *   pub provider: ...
+     *   pub factory_address: Address
+     *
+     * If your state uses different names, only update the two lines below.
+     */
+    let result = create_auction_with_default_confirmation(
+        &state.provider,
+        state.factory_address,
         seller,
         bidding_time_seconds,
         starting_bid_wei,
-        default_confirmation_window,
+        payload.title,
+        payload.description,
     )
     .await
+    .map_err(|err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to create auction: {err}"),
+        )
+    })?;
+
+    Ok(CreateAuctionResponse {
+        tx_hash: result.tx_hash,
+        auction_address: result.auction_address.to_string(),
+        seller: result.seller.to_string(),
+        bidding_time_seconds: result.bidding_time_seconds.to_string(),
+        end_time: result.end_time.to_string(),
+        starting_bid_wei: result.starting_bid_wei.to_string(),
+        admin: result.admin.to_string(),
+        confirmation_window: result.confirmation_window.to_string(),
+    })
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                  Helpers                                   */
+/* -------------------------------------------------------------------------- */
+
+fn validate_payload(payload: &CreateAuctionRequest) -> Result<(), (StatusCode, String)> {
+    if payload.bidding_time_seconds == 0 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "bidding_time_seconds must be greater than 0".to_string(),
+        ));
+    }
+
+    if payload.title.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "title is required".to_string()));
+    }
+
+    if payload.description.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "description is required".to_string(),
+        ));
+    }
+
+    if payload.starting_bid_wei.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "starting_bid_wei is required".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn get_seller_from_cookies(cookies: &Cookies) -> Result<Address, (StatusCode, String)> {
+    // Match these names to whatever verify_siwe writes during login.
+    let cookie_names = ["wallet_address", "address", "siwe_address", "user_address"];
+
+    let seller_raw = cookie_names
+        .iter()
+        .find_map(|name| cookies.get(name).map(|cookie| cookie.value().to_string()))
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                "No signed-in wallet found. Please sign in first.".to_string(),
+            )
+        })?;
+
+    seller_raw.parse::<Address>().map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Signed-in wallet address is invalid".to_string(),
+        )
+    })
 }

@@ -87,3 +87,14 @@ async function parseJsonResponse(res) {
 
     return data;
 }
+function weiToEthString(wei) {
+  if (wei === undefined || wei === null) return "0";
+
+  try {
+    return ethers.formatEther(wei.toString());
+  } catch {
+    return "0";
+  }
+}
+
+window.weiToEthString = weiToEthString;
