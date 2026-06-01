@@ -1,44 +1,19 @@
 /*
- * mod.rs
+ * routes/mod.rs
  *
- * Purpose:
- *     Route module registry for the Trust Rust web server.
+ * Route module registry.
  *
- * Responsibilities:
- *     - Declare route submodules
- *     - Organize HTTP handler namespaces
- *     - Provide centralized route module access
- *
- * Non-Responsibilities:
- *     - HTTP routing configuration
- *     - Request handling logic
- *     - Authentication
- *     - Blockchain interaction
- *
- * Architecture:
- *
- *            main.rs
- *                ↓
- *            routes/
- *                ↓
- *      Route Handler Modules
+ * Naming rule:
+ * - auction_query.rs    -> read-only auction registry/list calls
+ * - auction_create.rs   -> create auction transaction
+ * - auction_bid.rs      -> place bid transaction
+ * - auction_withdraw.rs -> withdraw pending return transaction
+ * - escrow_routes.rs    -> escrow lifecycle routes
  */
 
-/* -------------------------------------------------------------------------- */
-/*                              Route Modules                                 */
-/* -------------------------------------------------------------------------- */
-
-/// Auction creation route handlers.
-pub mod auction;
-
-/// Auction registry and listing route handlers.
-pub mod auction_list;
-
-/// Bid placement route handlers.
-pub mod bidding;
-
-/// Withdrawal route handlers.
-pub mod withdraw;
-
-/// Escrow lifecycle and settlement route handlers.
-pub mod escrow;
+pub mod auction_query;
+pub mod auction_create;
+pub mod auction_bid;
+pub mod auction_withdraw;
+pub mod escrow_routes;
+pub mod session;

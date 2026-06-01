@@ -73,6 +73,14 @@ pub struct VerifyResponse {
     pub wallet: String,
 }
 
+/**
+ * Response returned after logging out.
+ */
+#[derive(Serialize)]
+pub struct LogoutResponse {
+    pub success: bool,
+}
+
 /* -------------------------------------------------------------------------- */
 /*                              Auth Handlers                                 */
 /* -------------------------------------------------------------------------- */
@@ -197,4 +205,41 @@ pub async fn verify_siwe(
         success: true,
         wallet: recovered.to_string(),
     }))
+}
+/**
+ * Logs out the active user by removing the server-side session and clearing
+ * the trust_session cookie.
+ *
+ * # Arguments
+ *
+ * * `state` - Shared Axum application state.
+ * * `cookies` - Cookie jar containing the session cookie.
+ *
+ * # Returns
+ *
+ * JSON response indicating successful logout.
+ */
+pub async fn logout(
+    State(state): State<Arc<AppState>>,
+    cookies: Cookies,
+) -> Json<LogoutResponse> {
+    if let Some(session_cookie) = cookies.get("trust_session") {
+        let session_id = session_cookie.value().to_string();
+
+        state
+            .sessions
+            .lock()
+            .unwrap()
+            .remove(&session_id);
+    }
+
+    cookies.remove(
+        Cookie::build(("trust_session", ""))
+            .path("/")
+            .http_only(true)
+            .secure(false)
+            .into(),
+    );
+
+    Json(LogoutResponse { success: true })
 }
