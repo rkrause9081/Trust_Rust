@@ -151,14 +151,11 @@ where
 
     let receipt = provider.send_transaction(tx).await?.get_receipt().await?;
 
-    for log in receipt.logs() 
-    {
-        if let Ok(decoded) = AuctionCreated::decode_log(&log.inner) 
-        {
+    for log in receipt.logs() {
+        if let Ok(decoded) = AuctionCreated::decode_log(&log.inner) {
             let event = decoded.data;
 
-            return Ok(CreateAuctionResult 
-            {
+            return Ok(CreateAuctionResult {
                 tx_hash: format!("{:?}", receipt.transaction_hash),
                 auction_address: event.auctionAddress,
                 seller: event.seller,
