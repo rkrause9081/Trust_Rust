@@ -49,14 +49,6 @@
       id="walletPill"
       style="display:none;"
     ></button>
-
-    <button
-      class="nav-cta"
-      id="logoutBtn"
-      onclick="logout()"
-    >
-      Logout
-    </button>
   </nav>
 
   <!-- ====================== LANDING ====================== -->
@@ -319,14 +311,19 @@
 
   <!-- ====================== SCRIPTS ====================== -->
 
-  <script src="/js/utils.js"></script>
-  <script src="/js/auth.js"></script>
-  <script src="/js/auctions.js"></script>
-  <script src="/js/bidding.js"></script>
-  <script src="/js/withdraw.js"></script>
-  <script src="/js/escrow.js"></script>
-  <script src="/js/create_auction.js"></script>
-  <script src="/js/main.js"></script>
+<script src="/js/utils.js"></script>
+
+<script src="/js/auction_api.js"></script>
+<script src="/js/auction_state.js"></script>
+<script src="/js/escrow_actions.js"></script>
+<script src="/js/auction_cards.js"></script>
+
+<script src="/js/auth_session.js"></script>
+<script src="/js/bid_form.js"></script>
+<script src="/js/withdraw_modal.js"></script>
+<script src="/js/create_auction_form.js"></script>
+<script src="/js/app_init.js"></script>
+
 
 </body>
 </html>
