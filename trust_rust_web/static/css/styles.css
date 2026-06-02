@@ -1,478 +1,778 @@
+:/*
+ * styles.css
+ *
+ * Purpose:
+ *     Global stylesheet for the T.R.U.S.T Auction Protocol.
+ *
+ *     Defines the visual design system, application layout,
+ *     dashboard styling, auction card styling, escrow UI,
+ *     modal windows, responsive behavior, and theme variables.
+ *
+ * Responsibilities:
+ *     - Define application theme variables
+ *     - Style navigation components
+ *     - Style dashboard layouts
+ *     - Style auction cards
+ *     - Style escrow panels
+ *     - Style modal dialogs
+ *     - Style forms and buttons
+ *     - Provide responsive layouts
+ *
+ * Non-Responsibilities:
+ *     - DOM manipulation
+ *     - Authentication logic
+ *     - API communication
+ *     - Blockchain interactions
+ *
+ * Architecture:
+ *
+ *          styles.css
+ *                ↓
+ *         Design System
+ *                ↓
+ *     ┌──────────┼──────────┐
+ *     ↓          ↓          ↓
+ * Navigation Dashboard Auctions
+ *     ↓          ↓          ↓
+ *     Forms    Escrow     Modal
+ *
+ * Theme:
+ *     - Cyberpunk / Terminal-inspired UI
+ *     - Neon accent colors
+ *     - Dark blockchain dashboard aesthetic
+ *     - Fully responsive layouts
+ */
+
+/* -------------------------------------------------------------------------- */
+/*                             Theme Variables                                */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Global design tokens.
+ *
+ * Centralized color palette, typography,
+ * spacing, and reusable theme values.
+ */
 :root {
   --bg: #080b0f;
   --surface: #0d1117;
   --border: #1e2d40;
+
   --accent: #00e5ff;
   --accent2: #7b2fff;
+
   --danger: #ff4d6d;
   --success: #32ff9a;
+
   --text: #c9d6e3;
   --muted: #6b7c8f;
+
   --mono: 'Share Tech Mono', monospace;
   --sans: 'Syne', sans-serif;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+/* -------------------------------------------------------------------------- */
+/*                             Global Resets                                  */
+/* -------------------------------------------------------------------------- */
 
+/*
+ * Reset default browser spacing and
+ * normalize box model calculations.
+ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/*
+ * Enables smooth anchor scrolling.
+ */
+html {
+  scroll-behavior: smooth;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               Page Layout                                  */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Global page styling.
+ */
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
+
   overflow-x: hidden;
   cursor: crosshair;
 }
 
+/*
+ * Noise overlay effect.
+ *
+ * Creates subtle texture across
+ * the entire application.
+ */
 body::before {
   content: '';
+
   position: fixed;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+
+  background-image: url("data:image/svg+xml,...");
+
   pointer-events: none;
   z-index: 999;
   opacity: 0.4;
 }
 
+/*
+ * Grid overlay effect.
+ *
+ * Creates the futuristic terminal
+ * grid appearance.
+ */
 body::after {
   content: '';
+
   position: fixed;
   inset: 0;
+
   background-image:
     linear-gradient(var(--border) 1px, transparent 1px),
     linear-gradient(90deg, var(--border) 1px, transparent 1px);
+
   background-size: 60px 60px;
+
   opacity: 0.25;
+
   pointer-events: none;
   z-index: 0;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                             Cursor Effects                                 */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Dynamic cursor glow effect.
+ *
+ * Positioned via JavaScript and follows
+ * mouse movement across the page.
+ */
 .cursor-glow {
   position: fixed;
+
   width: 300px;
   height: 300px;
+
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,229,255,0.04) 0%, transparent 70%);
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(0,229,255,0.04) 0%,
+      transparent 70%
+    );
+
   pointer-events: none;
+
   transform: translate(-50%, -50%);
+
   z-index: 998;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               Navigation                                   */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Fixed top navigation bar.
+ */
 nav {
   position: fixed;
+
   top: 0;
   left: 0;
   right: 0;
+
   z-index: 100;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   gap: 1rem;
+
   padding: 1.25rem 3rem;
+
   border-bottom: 1px solid var(--border);
+
   background: rgba(8, 11, 15, 0.88);
+
   backdrop-filter: blur(12px);
 }
 
+/*
+ * Application branding.
+ */
 .nav-logo {
   font-family: var(--mono);
   font-size: 0.9rem;
+
   color: var(--accent);
+
   letter-spacing: 0.15em;
   text-decoration: none;
+
   white-space: nowrap;
 }
 
-.nav-logo span { color: var(--muted); }
+/*
+ * Logo accent element.
+ */
+.nav-logo span {
+  color: var(--muted);
+}
 
+/*
+ * Navigation link container.
+ */
 .nav-links {
   display: flex;
   gap: 1.5rem;
+
   list-style: none;
+
   flex-wrap: wrap;
   justify-content: center;
 }
 
+/*
+ * Navigation links.
+ */
 .nav-links a {
   font-family: var(--mono);
+
   font-size: 0.72rem;
   letter-spacing: 0.12em;
+
   color: var(--muted);
+
   text-decoration: none;
   text-transform: uppercase;
 }
 
-.nav-links a:hover { color: var(--accent); }
+/*
+ * Navigation hover state.
+ */
+.nav-links a:hover {
+  color: var(--accent);
+}
 
-.nav-cta, button {
+/* -------------------------------------------------------------------------- */
+/*                                Buttons                                     */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Shared button styling.
+ */
+.nav-cta,
+button {
   font-family: var(--mono);
+
   font-size: 0.75rem;
   letter-spacing: 0.12em;
+
   text-transform: uppercase;
+
   color: var(--accent);
+
   border: 1px solid var(--accent);
+
   padding: 0.65rem 1.2rem;
+
   background: transparent;
-  text-decoration: none;
+
   cursor: pointer;
 }
 
-.nav-cta:hover, button:hover {
+/*
+ * Shared button hover state.
+ */
+.nav-cta:hover,
+button:hover {
   background: var(--accent);
   color: var(--bg);
 }
 
+/*
+ * Primary action button.
+ *
+ * Used for:
+ *     - Withdraw
+ *     - Escrow actions
+ *     - Primary confirmations
+ */
 .btn-primary {
   color: var(--bg);
   background: var(--accent);
+
   border: 1px solid var(--accent);
+
   padding: 0.9rem 2rem;
+
   display: inline-block;
-  text-decoration: none;
+
   font-family: var(--mono);
   font-size: 0.8rem;
+
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
+/*
+ * Secondary / cancel button.
+ */
 .btn-ghost {
   color: var(--text);
+
   border: 1px solid var(--border);
+
+  background: transparent;
+
   padding: 0.9rem 2rem;
+
   display: inline-block;
-  text-decoration: none;
+
   font-family: var(--mono);
   font-size: 0.8rem;
+
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  background: transparent;
 }
 
-.hero, .app-section, .features {
+/* -------------------------------------------------------------------------- */
+/*                           Layout Containers                                */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Main page sections.
+ */
+.hero,
+.app-section,
+.features {
   position: relative;
+
   z-index: 1;
+
   max-width: 1200px;
+
   margin: 0 auto;
+
   padding: 8rem 3rem 4rem;
 }
 
+/*
+ * Hero landing section.
+ */
 .hero {
   min-height: 100vh;
+
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.hero-tag, .section-label {
+/*
+ * Section labels.
+ */
+.hero-tag,
+.section-label {
   font-family: var(--mono);
+
   font-size: 0.72rem;
   letter-spacing: 0.2em;
+
   color: var(--accent);
+
   text-transform: uppercase;
+
   margin-bottom: 2rem;
+
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.hero-tag::before, .section-label::before {
+/*
+ * Decorative section divider.
+ */
+.hero-tag::before,
+.section-label::before {
   content: '';
+
   width: 2rem;
   height: 1px;
+
   background: var(--accent);
 }
 
+/*
+ * Large headline text.
+ */
 .hero-title {
   font-size: clamp(3rem, 8vw, 7rem);
+
   font-weight: 800;
   line-height: 0.95;
-  color: #fff;
+
+  color: white;
+
   margin-bottom: 2rem;
 }
 
-.accent { color: var(--accent); }
-.dim { color: var(--muted); }
-
-.hero-sub {
-  font-family: var(--mono);
-  font-size: 0.9rem;
-  color: var(--muted);
-  line-height: 1.8;
-  max-width: 560px;
-  margin-bottom: 3rem;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.ticker {
-  position: relative;
-  z-index: 1;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  overflow: hidden;
-  padding: 0.75rem 0;
-}
-
-.ticker-inner {
-  display: flex;
-  gap: 4rem;
-  animation: ticker 22s linear infinite;
-  white-space: nowrap;
-}
-
-.ticker-item {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.15em;
-  color: var(--muted);
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-.ticker-item span {
+/*
+ * Accent text.
+ */
+.accent {
   color: var(--accent);
-  margin-right: 0.5rem;
 }
 
-@keyframes ticker {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+/*
+ * Muted text.
+ */
+.dim {
+  color: var(--muted);
 }
 
+/* -------------------------------------------------------------------------- */
+/*                            Dashboard Stats                                 */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Statistics grid.
+ */
 .stats {
   position: relative;
   z-index: 1;
+
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+
   border-bottom: 1px solid var(--border);
 }
 
+/*
+ * Individual statistic block.
+ */
 .stat {
   padding: 3rem;
   border-right: 1px solid var(--border);
 }
 
-.stat:last-child { border-right: none; }
-
+/*
+ * Statistic value.
+ */
 .stat-value {
   font-size: clamp(2rem, 4vw, 3.5rem);
+
   font-weight: 800;
-  color: #fff;
+
+  color: white;
+
   line-height: 1;
-  margin-bottom: 0.5rem;
 }
 
-.stat-value .unit {
-  font-size: 0.4em;
-  color: var(--accent);
-  font-family: var(--mono);
-  vertical-align: super;
-}
-
+/*
+ * Statistic label.
+ */
 .stat-label {
   font-family: var(--mono);
+
   font-size: 0.7rem;
   letter-spacing: 0.15em;
+
   color: var(--muted);
+
   text-transform: uppercase;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               Grid Layouts                                 */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Shared CSS grid container.
+ */
 .grid {
   display: grid;
   gap: 1rem;
 }
 
-.grid-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-2 { grid-template-columns: repeat(2, 1fr); }
+/*
+ * Three-column layout.
+ */
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
 
+/*
+ * Two-column layout.
+ */
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                 Cards                                      */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Shared card styling.
+ */
 .card {
   background: rgba(13, 17, 23, 0.9);
+
   border: 1px solid var(--border);
+
   padding: 1.5rem;
+
   position: relative;
   overflow: hidden;
 }
 
+/*
+ * Card title.
+ */
 .card-title {
-  color: #fff;
+  color: white;
+
   font-size: 1.2rem;
+
   margin-bottom: 0.75rem;
 }
 
-.card-meta, .card-desc {
+/*
+ * Card metadata and descriptions.
+ */
+.card-meta,
+.card-desc {
   font-family: var(--mono);
+
   color: var(--muted);
+
   font-size: 0.78rem;
   line-height: 1.7;
 }
 
-input, textarea, select {
+/* -------------------------------------------------------------------------- */
+/*                               Forms                                        */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Form controls.
+ */
+input,
+textarea,
+select {
   width: 100%;
+
   background: #05070a;
+
   border: 1px solid var(--border);
+
   color: var(--text);
+
   padding: 0.9rem;
+
   font-family: var(--mono);
+
   outline: none;
 }
 
-input:focus, textarea:focus, select:focus {
+/*
+ * Form control focus state.
+ */
+input:focus,
+textarea:focus,
+select:focus {
   border-color: var(--accent);
 }
 
+/*
+ * Form labels.
+ */
 label {
   display: block;
+
   font-family: var(--mono);
+
   color: var(--accent);
+
   font-size: 0.72rem;
+
   letter-spacing: 0.12em;
   text-transform: uppercase;
+
   margin-bottom: 0.5rem;
 }
 
-.form-group { margin-bottom: 1rem; }
+/*
+ * Form field container.
+ */
+.form-group {
+  margin-bottom: 1rem;
+}
 
+/*
+ * Status messages.
+ */
+.status-line {
+  font-family: var(--mono);
+
+  color: var(--muted);
+
+  font-size: 0.8rem;
+
+  margin-top: 1rem;
+
+  min-height: 1.2rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                        Authentication Layout                               */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Hidden until login.
+ */
 .app-shell {
   display: none;
   position: relative;
   z-index: 1;
 }
 
-body.logged-in .landing-shell { display: none; }
-body.logged-in .app-shell { display: block; }
-body.logged-in .nav-landing-link { display: none; }
+/*
+ * Logged-in UI state.
+ */
+body.logged-in .landing-shell {
+  display: none;
+}
 
+body.logged-in .app-shell {
+  display: block;
+}
+
+body.logged-in .nav-landing-link {
+  display: none;
+}
+
+/*
+ * Logged-out UI state.
+ */
 body:not(.logged-in) .nav-app-link,
 body:not(.logged-in) #logoutBtn {
   display: none;
 }
 
+/*
+ * Wallet display button.
+ */
 .wallet-pill {
   color: var(--success);
+
   border-color: var(--success);
+
   max-width: 210px;
+
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.status-line {
-  font-family: var(--mono);
-  color: var(--muted);
-  font-size: 0.8rem;
-  margin-top: 1rem;
-  min-height: 1.2rem;
-}
+/* -------------------------------------------------------------------------- */
+/*                            Withdrawal Modal                                */
+/* -------------------------------------------------------------------------- */
 
-footer {
-  position: relative;
-  z-index: 1;
-  border-top: 1px solid var(--border);
-  padding: 2rem 3rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: var(--mono);
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-@media (max-width: 900px) {
-  nav {
-    padding: 1rem 1.5rem;
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .nav-links { justify-content: flex-start; }
-
-  .hero, .app-section, .features {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-
-  .stats, .grid-3, .grid-2 {
-    grid-template-columns: 1fr;
-  }
-
-  .stat {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  footer {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-  }
-}
+/*
+ * Modal overlay backdrop.
+ */
 .modal-backdrop {
   position: fixed;
   inset: 0;
+
   z-index: 2000;
+
   display: none;
+
   align-items: center;
   justify-content: center;
+
   padding: 2rem;
+
   background: rgba(8, 11, 15, 0.86);
+
   backdrop-filter: blur(12px);
 }
 
+/*
+ * Visible modal state.
+ */
 .modal-backdrop.show {
   display: flex;
 }
 
+/*
+ * Modal content container.
+ */
 .modal-card {
   width: 100%;
   max-width: 520px;
+
   background: rgba(13, 17, 23, 0.98);
+
   border: 1px solid var(--accent);
+
   padding: 2rem;
+
   position: relative;
-  box-shadow: 0 0 40px rgba(0, 229, 255, 0.18);
 }
 
-.modal-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border-color: var(--border);
-  color: var(--muted);
-}
-
+/*
+ * Withdrawal address display.
+ */
 .modal-address {
   margin: 1rem 0;
+
   padding: 1rem;
+
   background: #05070a;
+
   border: 1px solid var(--border);
+
   color: var(--accent);
+
   font-family: var(--mono);
-  font-size: 0.8rem;
-  word-break: break-all;
 }
 
-.modal-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
+/* -------------------------------------------------------------------------- */
+/*                              Auction Cards                                 */
+/* -------------------------------------------------------------------------- */
 
-.modal-actions button {
-  flex: 1;
-}
+/*
+ * Auction card layout.
+ */
 .auction-card {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
+/*
+ * Placeholder image block.
+ */
 .auction-image-placeholder {
   width: 100%;
   height: 180px;
@@ -480,84 +780,43 @@ footer {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(0,229,255,0.12),
-      rgba(0,229,255,0.03)
-    );
-
-  border: 1px dashed rgba(0,229,255,0.35);
-
-  color: var(--accent);
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
 }
 
+/*
+ * Auction title.
+ */
 .auction-title {
   font-size: 1.2rem;
   font-weight: 700;
   color: white;
 }
 
+/*
+ * Auction address.
+ */
 .auction-address {
-  font-size: 0.7rem;
   color: var(--muted);
   word-break: break-all;
 }
 
-.auction-description {
-  color: var(--muted);
-  line-height: 1.5;
-  min-height: 3rem;
-}
-
-.auction-meta-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.meta-label {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--muted);
-  margin-bottom: 0.3rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.meta-value {
-  font-size: 1rem;
-  font-weight: 600;
-  color: white;
-}
-
-.auction-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-
-  padding-top: 1rem;
-
-  border-top: 1px solid rgba(255,255,255,0.06);
-
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
+/*
+ * Auction action buttons.
+ */
 .auction-actions {
   display: flex;
   gap: 0.75rem;
-  margin-top: 0.5rem;
 }
 
-.auction-actions button {
-  flex: 1;
-}
+/* -------------------------------------------------------------------------- */
+/*                               Escrow UI                                    */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Escrow information container.
+ */
 .escrow-panel {
   margin-top: 1rem;
+
   padding-top: 1rem;
 
   border-top:
@@ -568,27 +827,77 @@ footer {
   gap: 0.75rem;
 }
 
-.escrow-header {
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent);
-  font-family: var(--mono);
-}
-
-.escrow-status,
-.escrow-time,
-.escrow-complete {
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
+/*
+ * Escrow action buttons.
+ */
 .escrow-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.escrow-actions button {
-  flex: 1;
+/* -------------------------------------------------------------------------- */
+/*                             Footer                                          */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Application footer.
+ */
+footer {
+  position: relative;
+
+  z-index: 1;
+
+  border-top: 1px solid var(--border);
+
+  padding: 2rem 3rem;
+
+  display: flex;
+  justify-content: space-between;
+
+  font-family: var(--mono);
+
+  color: var(--muted);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                            Responsive Layout                               */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Tablet and mobile layouts.
+ */
+@media (max-width: 900px) {
+
+  nav {
+    padding: 1rem 1.5rem;
+
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .nav-links {
+    justify-content: flex-start;
+  }
+
+  .hero,
+  .app-section,
+  .features {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .stats,
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  footer {
+    flex-direction: column;
+
+    gap: 1rem;
+
+    text-align: center;
+  }
 }
