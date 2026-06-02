@@ -1,15 +1,102 @@
+<!--
+===============================================================================
+index.html
+
+Purpose:
+    Main frontend entry point for the T.R.U.S.T Auction Protocol.
+
+    Defines the application layout, auction dashboard, bidding UI,
+    auction creation workflow, withdrawal modal, navigation system,
+    and JavaScript module loading order.
+
+Responsibilities:
+    - Define application page structure
+    - Provide dashboard containers
+    - Provide auction listing containers
+    - Provide bid submission form
+    - Provide auction creation form
+    - Provide withdrawal modal
+    - Load frontend JavaScript modules
+    - Load global stylesheets
+
+Non-Responsibilities:
+    - Auction rendering logic
+    - Authentication implementation
+    - API communication
+    - Blockchain interactions
+    - State management
+
+Architecture:
+
+        index.html
+             ↓
+       Frontend Layout
+             ↓
+    ┌────────┼────────┐
+    ↓        ↓        ↓
+ Dashboard Auctions Forms
+    ↓        ↓        ↓
+     JavaScript Modules
+             ↓
+        Backend API
+             ↓
+      Blockchain Layer
+
+Loaded Modules:
+
+    utils.js
+        Shared helper functions
+
+    auction_api.js
+        Backend API wrapper
+
+    auction_state.js
+        Shared auction cache
+
+    escrow_actions.js
+        Escrow UI actions
+
+    auction_cards.js
+        Auction rendering
+
+    auth_session.js
+        SIWE authentication
+
+    bid_form.js
+        Bid workflow
+
+    withdraw_modal.js
+        Withdrawal workflow
+
+    create_auction_form.js
+        Auction creation workflow
+
+    app_init.js
+        Application bootstrap
+===============================================================================
+-->
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+  <!-- ===================================================================== -->
+  <!-- Document Metadata                                                     -->
+  <!-- ===================================================================== -->
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Browser tab title -->
   <title>T.R.U.S.T Auction Protocol</title>
 
+  <!-- Global application stylesheet -->
   <link rel="stylesheet" href="/css/styles.css" />
 
+  <!-- Font preconnect optimization -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
 
+  <!-- Application fonts -->
   <link
     href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap"
     rel="stylesheet"
@@ -17,25 +104,56 @@
 </head>
 
 <body>
+
+  <!-- ===================================================================== -->
+  <!-- Cursor Visual Effects                                                 -->
+  <!-- ===================================================================== -->
+
+  <!-- Dynamic cursor glow effect -->
   <div class="cursor-glow" id="cursorGlow"></div>
 
-  <!-- ====================== NAVIGATION ====================== -->
+  <!-- ===================================================================== -->
+  <!-- Navigation                                                            -->
+  <!-- ===================================================================== -->
 
   <nav>
+
+    <!-- Application logo -->
     <a class="nav-logo" href="#">
       <span>//</span> T.R.U.S.T
     </a>
 
+    <!-- Navigation links -->
     <ul class="nav-links">
-      <li class="nav-landing-link"><a href="#features">Features</a></li>
-      <li class="nav-landing-link"><a href="#home">Home</a></li>
 
-      <li class="nav-app-link"><a href="#dashboard">Dashboard</a></li>
-      <li class="nav-app-link"><a href="#active-auctions">Active Auctions</a></li>
-      <li class="nav-app-link"><a href="#place-bid">Place Bid</a></li>
-      <li class="nav-app-link"><a href="#create-auction">Create Auction</a></li>
+      <!-- Landing page navigation -->
+      <li class="nav-landing-link">
+        <a href="#features">Features</a>
+      </li>
+
+      <li class="nav-landing-link">
+        <a href="#home">Home</a>
+      </li>
+
+      <!-- Application navigation -->
+      <li class="nav-app-link">
+        <a href="#dashboard">Dashboard</a>
+      </li>
+
+      <li class="nav-app-link">
+        <a href="#active-auctions">Active Auctions</a>
+      </li>
+
+      <li class="nav-app-link">
+        <a href="#place-bid">Place Bid</a>
+      </li>
+
+      <li class="nav-app-link">
+        <a href="#create-auction">Create Auction</a>
+      </li>
     </ul>
 
+    <!-- SIWE authentication button -->
     <button
       class="nav-cta"
       id="loginBtn"
@@ -44,79 +162,140 @@
       Sign In
     </button>
 
+    <!-- Authenticated wallet display -->
     <button
       class="nav-cta wallet-pill"
       id="walletPill"
       style="display:none;"
     ></button>
+
   </nav>
 
-  <!-- ====================== LANDING ====================== -->
+  <!-- ===================================================================== -->
+  <!-- Landing Section                                                       -->
+  <!-- ===================================================================== -->
 
+  <!--
+      Landing content container.
+
+      Marketing content, hero sections,
+      feature descriptions, and branding
+      elements belong here.
+  -->
   <main class="landing-shell">
     <!-- Keep your landing content here -->
   </main>
 
-  <!-- ====================== APP ====================== -->
+  <!-- ===================================================================== -->
+  <!-- Application Area                                                      -->
+  <!-- ===================================================================== -->
 
   <main class="app-shell">
 
-    <!-- ====================== DASHBOARD ====================== -->
+    <!-- =================================================================== -->
+    <!-- Dashboard                                                           -->
+    <!-- =================================================================== -->
 
     <section class="app-section" id="dashboard">
-      <div class="section-label">Auction Dashboard</div>
 
+      <div class="section-label">
+        Auction Dashboard
+      </div>
+
+      <!-- Personalized dashboard greeting -->
       <h1 class="hero-title">
         Welcome,<br>
-        <span class="accent" id="walletHeading">bidder.</span>
+        <span class="accent" id="walletHeading">
+          bidder.
+        </span>
       </h1>
 
+      <!-- Dashboard statistics -->
       <div class="grid grid-3">
+
+        <!-- Active auction count -->
         <div class="card">
           <div class="stat-value" id="activeCount">0</div>
           <div class="stat-label">Active Auctions</div>
         </div>
 
+        <!-- Highest active bid -->
         <div class="card">
           <div class="stat-value" id="highestBid">0 ETH</div>
           <div class="stat-label">Highest Current Bid</div>
         </div>
 
+        <!-- Auction count -->
         <div class="card">
           <div class="stat-value" id="createdCount">0</div>
           <div class="stat-label">Auctions Created</div>
         </div>
+
       </div>
     </section>
 
-    <!-- ====================== ACTIVE AUCTIONS ====================== -->
+    <!-- =================================================================== -->
+    <!-- Active Auctions                                                     -->
+    <!-- =================================================================== -->
 
     <section class="app-section" id="active-auctions">
-      <div class="section-label">Active Auctions</div>
 
-      <div class="grid grid-3" id="auctionGrid"></div>
+      <div class="section-label">
+        Active Auctions
+      </div>
+
+      <!--
+          Auction cards are dynamically rendered
+          into this container by auction_cards.js
+      -->
+      <div
+        class="grid grid-3"
+        id="auctionGrid"
+      ></div>
+
     </section>
 
-    <!-- ====================== PLACE BID ====================== -->
+    <!-- =================================================================== -->
+    <!-- Bid Submission                                                      -->
+    <!-- =================================================================== -->
 
     <section class="app-section" id="place-bid">
-      <div class="section-label">Place Bid</div>
+
+      <div class="section-label">
+        Place Bid
+      </div>
 
       <div class="grid grid-2">
 
+        <!-- Bid form -->
         <div class="card">
-          <h2 class="card-title">Submit Bid</h2>
+
+          <h2 class="card-title">
+            Submit Bid
+          </h2>
 
           <form id="bidForm">
 
+            <!-- Auction selector -->
             <div class="form-group">
-              <label for="bidAuction">Auction</label>
 
-              <select id="bidAuction" required></select>
+              <label for="bidAuction">
+                Auction
+              </label>
+
+              <select
+                id="bidAuction"
+                required
+              ></select>
+
             </div>
 
+            <!-- Bid amount -->
             <div class="form-group">
-              <label for="bidAmount">Bid Amount ETH</label>
+
+              <label for="bidAmount">
+                Bid Amount ETH
+              </label>
 
               <input
                 id="bidAmount"
@@ -126,43 +305,66 @@
                 placeholder="Example: 2.50"
                 required
               />
+
             </div>
 
+            <!-- Submit bid -->
             <button type="submit">
               Place Bid
             </button>
+
           </form>
 
-          <p class="status-line" id="bidStatus"></p>
+          <!-- Bid status messages -->
+          <p
+            class="status-line"
+            id="bidStatus"
+          ></p>
+
         </div>
 
+        <!-- Bid rules -->
         <div class="card">
-          <h2 class="card-title">Bid Rules</h2>
+
+          <h2 class="card-title">
+            Bid Rules
+          </h2>
 
           <p class="card-desc">
             • Bid must be higher than current highest bid.<br>
             • Outbid users must manually withdraw funds.<br>
             • Withdrawals happen directly on-chain.
           </p>
+
         </div>
 
       </div>
+
     </section>
 
-    <!-- ====================== CREATE AUCTION ====================== -->
+    <!-- =================================================================== -->
+    <!-- Create Auction                                                      -->
+    <!-- =================================================================== -->
 
     <section class="app-section" id="create-auction">
 
-      <div class="section-label">Create Auction</div>
+      <div class="section-label">
+        Create Auction
+      </div>
 
       <div class="card">
 
+        <!-- Auction creation form -->
         <form id="createAuctionForm">
 
+          <!-- Basic auction information -->
           <div class="grid grid-2">
 
             <div class="form-group">
-              <label for="auctionTitle">Auction Title</label>
+
+              <label for="auctionTitle">
+                Auction Title
+              </label>
 
               <input
                 id="auctionTitle"
@@ -170,10 +372,14 @@
                 placeholder="Cyber Katana #404"
                 required
               />
+
             </div>
 
             <div class="form-group">
-              <label for="startingBid">Starting Bid ETH</label>
+
+              <label for="startingBid">
+                Starting Bid ETH
+              </label>
 
               <input
                 id="startingBid"
@@ -183,24 +389,33 @@
                 placeholder="0.00"
                 required
               />
+
             </div>
 
           </div>
 
+          <!-- Auction configuration -->
           <div class="grid grid-2">
 
             <div class="form-group">
-              <label for="endDate">Auction End Date</label>
+
+              <label for="endDate">
+                Auction End Date
+              </label>
 
               <input
                 id="endDate"
                 type="datetime-local"
                 required
               />
+
             </div>
 
             <div class="form-group">
-              <label for="assetType">Asset Type</label>
+
+              <label for="assetType">
+                Asset Type
+              </label>
 
               <select id="assetType" required>
                 <option value="NFT">NFT</option>
@@ -208,10 +423,12 @@
                 <option value="Physical Asset">Physical Asset</option>
                 <option value="Other">Other</option>
               </select>
+
             </div>
 
           </div>
 
+          <!-- Auction description -->
           <div class="form-group">
 
             <label for="auctionDescription">
@@ -227,19 +444,28 @@
 
           </div>
 
+          <!-- Submit auction -->
           <button type="submit">
             🚀 Create Auction on Blockchain
           </button>
 
         </form>
 
-        <p class="status-line" id="createStatus"></p>
+        <!-- Auction creation status -->
+        <p
+          class="status-line"
+          id="createStatus"
+        ></p>
+
       </div>
+
     </section>
 
   </main>
 
-  <!-- ====================== WITHDRAW MODAL ====================== -->
+  <!-- ===================================================================== -->
+  <!-- Withdrawal Modal                                                      -->
+  <!-- ===================================================================== -->
 
   <div
     class="modal-backdrop"
@@ -248,6 +474,7 @@
   >
     <div class="modal-card">
 
+      <!-- Close modal -->
       <button
         class="modal-close"
         type="button"
@@ -268,6 +495,7 @@
         You are about to withdraw pending funds from:
       </p>
 
+      <!-- Auction address -->
       <div
         class="modal-address"
         id="withdrawAuctionAddress"
@@ -275,11 +503,13 @@
         0x...
       </div>
 
+      <!-- Withdrawal status -->
       <p
         class="status-line"
         id="withdrawStatus"
       ></p>
 
+      <!-- Modal actions -->
       <div class="modal-actions">
 
         <button
@@ -299,31 +529,52 @@
         </button>
 
       </div>
+
     </div>
   </div>
 
-  <!-- ====================== FOOTER ====================== -->
+  <!-- ===================================================================== -->
+  <!-- Footer                                                                -->
+  <!-- ===================================================================== -->
 
   <footer>
     <div>// T.R.U.S.T</div>
     <div>© 2026 — Rust + Alloy Auction Protocol</div>
   </footer>
 
-  <!-- ====================== SCRIPTS ====================== -->
+  <!-- ===================================================================== -->
+  <!-- JavaScript Modules                                                    -->
+  <!-- ===================================================================== -->
 
-<script src="/js/utils.js"></script>
+  <!-- Shared utility helpers -->
+  <script src="/js/utils.js"></script>
 
-<script src="/js/auction_api.js"></script>
-<script src="/js/auction_state.js"></script>
-<script src="/js/escrow_actions.js"></script>
-<script src="/js/auction_cards.js"></script>
+  <!-- API layer -->
+  <script src="/js/auction_api.js"></script>
 
-<script src="/js/auth_session.js"></script>
-<script src="/js/bid_form.js"></script>
-<script src="/js/withdraw_modal.js"></script>
-<script src="/js/create_auction_form.js"></script>
-<script src="/js/app_init.js"></script>
+  <!-- Shared state -->
+  <script src="/js/auction_state.js"></script>
 
+  <!-- Escrow workflows -->
+  <script src="/js/escrow_actions.js"></script>
+
+  <!-- Auction rendering -->
+  <script src="/js/auction_cards.js"></script>
+
+  <!-- Authentication -->
+  <script src="/js/auth_session.js"></script>
+
+  <!-- Bid workflow -->
+  <script src="/js/bid_form.js"></script>
+
+  <!-- Withdrawal workflow -->
+  <script src="/js/withdraw_modal.js"></script>
+
+  <!-- Auction creation workflow -->
+  <script src="/js/create_auction_form.js"></script>
+
+  <!-- Application bootstrap -->
+  <script src="/js/app_init.js"></script>
 
 </body>
 </html>

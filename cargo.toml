@@ -1,6 +1,0 @@
-[workspace]
-members = [
-    "trust_rust_client",
-    "trust_rust_web",
-]
-resolver = "2"
