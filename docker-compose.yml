@@ -1,0 +1,19 @@
+services:
+  trust-rust-web:
+    image: trust-rust-web
+    build:
+      context: .
+      network: host
+
+    container_name: trust-rust-web
+
+    ports:
+      - "3000:3000"
+
+    env_file:
+      - .env.docker
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    restart: unless-stopped
