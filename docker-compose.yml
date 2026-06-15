@@ -1,0 +1,20 @@
+services:
+  hardhat:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - ./HH Blockchain node:/app
+    ports:
+      - "8545:8545"
+    command: sh -c "npm install && npx hardhat node --hostname 0.0.0.0"
+
+  rust-web:
+    build: .
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - hardhat
+    command: cargo run -p trust_rust_web
