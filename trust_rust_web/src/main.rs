@@ -51,7 +51,7 @@ use axum::{
 };
 
 use tower_cookies::CookieManagerLayer;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_livereload::LiveReloadLayer;
 
 use auth::{get_nonce, logout, verify_siwe};
@@ -179,7 +179,10 @@ async fn main() {
         /* ---------------------------- Static assets ---------------------------- */
 
         // Serves frontend assets from the static directory.
-        .fallback_service(ServeDir::new("static"))
+        .fallback_service(
+        ServeDir::new("static")
+        .not_found_service(ServeFile::new("static/index.html"))
+        )
 
         /* ----------------------------- Middleware ------------------------------ */
 
