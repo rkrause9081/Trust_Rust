@@ -7,177 +7,49 @@ A full-stack decentralized auction and escrow platform built with:
 * Alloy
 * Solidity
 * Hardhat
-* JavaScript frontend
+* JavaScript
 
-This project implements an Ethereum-based auction system with:
+The protocol implements:
 
-* on-chain auction creation
-* on-chain bidding
-* auction registry queries
-* escrow settlement flows
-* refund/withdrawal handling
+* On-chain auction creation
+* On-chain bidding
+* Escrow settlement flows
+* Withdrawal/refund handling
+* Auction registry queries
 * SIWE-style wallet authentication
-* session cookie management
+* Session cookie management
 * Rust backend APIs
-* Solidity smart contract testing
-* modular blockchain client architecture
-* modular frontend state/render/API separation
+* Solidity smart contracts
+* Modular frontend architecture
 
 ---
 
 # Architecture
 
 ```text
-Frontend HTML / CSS / JS
-        ↓
-Frontend modules:
-  auth_session.js
-  auction_api.js
-  auction_state.js
-  auction_cards.js
-  bid_form.js
-  create_auction_form.js
-  withdraw_modal.js
-  escrow_actions.js
-  app_init.js
-        ↓
-Axum Web Server (trust_rust_web)
-        ↓
-Route Handlers + AppState
-        ↓
-Blockchain Client Layer (trust_rust_client)
-        ↓
-Alloy Provider
-        ↓
-Ethereum / Hardhat
-        ↓
-Solidity Smart Contracts
+Frontend (HTML / CSS / JS)
+            │
+            ▼
+     Axum Web Server
+      (trust_rust_web)
+            │
+            ▼
+       Route Handlers
+         + AppState
+            │
+            ▼
+ Blockchain Client Layer
+   (trust_rust_client)
+            │
+            ▼
+      Alloy Provider
+            │
+            ▼
+ Ethereum / Hardhat Node
+            │
+            ▼
+     Solidity Contracts
 ```
-
----
-
-# Project Structure
-
-```text
-TRUST_RUST/
-│
-├── HH Blockchain node/
-│   ├── contracts/
-│   │   ├── AuctionFactory.sol
-│   │   ├── AuctionRegistry.sol
-│   │   └── Auction/
-│   │       ├── AuctionState.sol
-│   │       ├── AuctionEscrow.sol
-│   │       ├── AuctionSettlement.sol
-│   │       └── SimpleAuction.sol
-│   │
-│   ├── scripts/
-│   │   ├── deploy_factory.js
-│   │   └── create_auction.js
-│   │
-│   ├── test/
-│   │   ├── auctionFactory.test.js
-│   │   └── auctionProtocol.test.js
-│   │
-│   ├── hardhat.config.js
-│   └── package.json
-│
-├── trust_rust_client/
-│   ├── src/
-│   │   ├── bidding.rs
-│   │   ├── create_auction.rs
-│   │   ├── escrow.rs
-│   │   ├── registry.rs
-│   │   ├── withdraw.rs
-│   │   ├── config.rs
-│   │   └── auction_loader.rs
-│   │
-│   └── tests/
-│
-├── trust_rust_web/
-│   ├── src/
-│   │   ├── auth.rs
-│   │   ├── state.rs
-│   │   ├── main.rs
-│   │   └── routes/
-│   │       ├── mod.rs
-│   │       ├── auction_query.rs
-│   │       ├── auction_create.rs
-│   │       ├── auction_bid.rs
-│   │       ├── auction_withdraw.rs
-│   │       └── escrow_routes.rs
-│   │
-│   └── static/
-│       ├── index.html
-│       ├── css/
-│       │   └── styles.css
-│       └── js/
-│           ├── utils.js
-│           ├── auction_api.js
-│           ├── auction_state.js
-│           ├── auction_cards.js
-│           ├── auth_session.js
-│           ├── bid_form.js
-│           ├── create_auction_form.js
-│           ├── withdraw_modal.js
-│           ├── escrow_actions.js
-│           └── app_init.js
-│
-└── README.md
-```
-
----
-
-# Route Module Responsibilities
-
----
-
-# Features
-
-## Smart Contract Features
-
-* AuctionFactory contract
-* Dynamic auction deployment
-* Auction registry system
-* On-chain bidding
-* Highest bid tracking
-* Escrow settlement system
-* Refund support
-* Withdrawal pattern for safe refunds
-* Confirmation timeout handling
-* Seller timeout claim flow
-* Solidity unit/integration tests
-
----
-
-## Rust Backend Features
-
-* Axum HTTP API server
-* Shared application state with `Arc` + `Mutex`
-* Alloy Ethereum provider integration
-* Structured route module separation
-* Async blockchain interaction
-* SIWE-style authentication
-* Session cookie management
-* Wallet-pill logout endpoint
-* JSON REST API responses
-* Rust integration test suite
-
----
-
-## Frontend Features
-
-* Wallet authentication
-* Wallet-pill logout
-* Active auction list
-* Dashboard stats
-* Bid placement UI
-* Automatic auction-card refresh after successful bids
-* Create auction UI
-* Withdraw modal
-* Escrow interaction controls
-* Shared auction state/cache
-* Modular API/state/render separation
 
 ---
 
@@ -192,12 +64,207 @@ TRUST_RUST/
 | Ethereum Library       | Alloy                   |
 | Async Runtime          | Tokio                   |
 | Frontend               | HTML / CSS / JavaScript |
-| Authentication         | SIWE-style signatures   |
+| Authentication         | SIWE-style Signatures   |
 | Smart Contract Testing | Mocha / Chai            |
 
 ---
 
-# Getting Started
+# Project Structure
+
+```text
+TRUST_RUST/
+│
+├── HH Blockchain node/
+│   ├── contracts/
+│   ├── scripts/
+│   ├── test/
+│   ├── hardhat.config.js
+│   └── package.json
+│
+├── trust_rust_client/
+│   ├── src/
+│   └── tests/
+│
+├── trust_rust_web/
+│   ├── src/
+│   ├── static/
+│   │   ├── index.html
+│   │   ├── css/
+│   │   └── js/
+│   └── tests/
+│
+├── Dockerfile
+├── docker-compose.yml
+├── .env
+└── README.md
+```
+
+---
+
+# Features
+
+## Smart Contract Features
+
+* AuctionFactory contract
+* Dynamic auction deployment
+* Auction registry system
+* On-chain bidding
+* Highest bid tracking
+* Escrow settlement
+* Refund support
+* Withdrawal pattern
+* Confirmation timeout handling
+* Seller timeout claim flow
+* Solidity unit and integration tests
+
+---
+
+## Rust Backend Features
+
+* Axum HTTP API
+* Shared application state
+* Alloy Ethereum integration
+* Async blockchain interaction
+* Session cookie management
+* SIWE-style authentication
+* Modular route architecture
+* JSON REST APIs
+* Integration testing
+
+---
+
+## Frontend Features
+
+* Wallet authentication
+* Dashboard statistics
+* Active auction list
+* Auction creation
+* Bid placement
+* Withdrawal workflow
+* Escrow interaction controls
+* Shared auction state cache
+* Modular API/state/render architecture
+
+---
+
+# Quick Start
+
+The project supports two workflows.
+
+| Branch | Purpose            |
+| ------ | ------------------ |
+| `main` | Docker deployment  |
+| `dev`  | Manual development |
+
+---
+
+# Main Branch (Docker)
+
+Recommended for users, evaluators, demonstrations, and deployment testing.
+
+## Prerequisites
+
+Install:
+
+* Docker
+* Docker Compose
+
+Verify installation:
+
+```bash
+docker --version
+docker compose version
+```
+
+---
+
+## Clone Repository
+
+```bash
+git clone <repository-url>
+cd TRUST_RUST
+git checkout main
+```
+
+---
+
+## Configure Environment
+
+Create:
+
+```bash
+.env.docker
+```
+
+Example:
+
+```env
+RPC_URL=http://host.docker.internal:8545
+
+FACTORY_ADDRESS=0x...
+
+SELLER_ADDRESS=0x...
+ADMIN_ADDRESS=0x...
+BIDDER_ADDRESS=0x...
+BUYER_ADDRESS=0x...
+
+BIDDING_TIME_SECONDS=3600
+STARTING_BID_WEI=1000000000000000000
+CONFIRMATION_WINDOW=259200
+REGISTRY_PAGE_LIMIT=20
+```
+
+---
+
+## Build Docker Image
+
+Linux users may need host networking during Cargo dependency resolution:
+
+```bash
+sudo docker build --network=host -t trust-rust-web .
+```
+
+---
+
+## Start Application
+
+```bash
+sudo docker compose up
+```
+
+Application URL:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## Stop Application
+
+```bash
+sudo docker compose down
+```
+
+---
+
+## Rebuild Application
+
+```bash
+sudo docker compose down
+
+sudo docker build \
+  --network=host \
+  -t trust-rust-web .
+
+sudo docker compose up
+```
+
+---
+
+# Development Branch (Manual Development)
+
+Recommended for contributors working on contracts, backend code, and frontend functionality.
 
 ## Prerequisites
 
@@ -207,118 +274,105 @@ Install:
 * Cargo
 * Node.js
 * npm
+* Hardhat
 
 ---
 
 ## Clone Repository
 
 ```bash
-git clone <your-repo-url>
+git clone <repository-url>
 cd TRUST_RUST
+git checkout dev
 ```
 
 ---
 
-# Smart Contract Setup
-
-## Install Dependencies
+# Terminal 1 — Start Hardhat Node
 
 ```bash
 cd "HH Blockchain node"
+
 npm install
-```
 
----
-
-## Compile Contracts
-
-```bash
-rm -rf artifacts cache
-npx hardhat compile
-```
-
----
-
-## Start Local Hardhat Node
-
-Open a terminal:
-
-```bash
 npx hardhat node
 ```
 
+Blockchain RPC:
+
+```text
+http://127.0.0.1:8545
+```
+
 ---
 
-## Deploy AuctionFactory Contract
-
-Open another terminal:
+# Terminal 2 — Deploy Contracts
 
 ```bash
-npx hardhat run scripts/deploy_factory.js --network localhost
+cd "HH Blockchain node"
+
+npx hardhat run \
+  scripts/deploy_factory.js \
+  --network localhost
 ```
+
+Copy the deployed factory address.
+
+Update:
+
+```env
+FACTORY_ADDRESS=0x...
+```
+
+Restart the Rust server after updating.
 
 Optional:
 
 ```bash
-npx hardhat run scripts/create_auction.js --network localhost
-```
-
-After deployment:
-
-1. Copy the deployed factory address.
-2. Update the factory address used by the Rust web server.
-3. Restart the Rust web server if it is already running.
-
-The Rust backend uses the deployed factory contract for:
-
-* auction creation
-* registry queries
-* escrow lifecycle operations
-
----
-
-# Rust Setup
-
-## Build Project
-
-```bash
-cargo build
+npx hardhat run \
+  scripts/create_auction.js \
+  --network localhost
 ```
 
 ---
 
-## Format Rust Code
+# Terminal 3 — Start Rust Backend
+
+From the workspace root:
 
 ```bash
-cargo fmt --all
+cargo run -p trust_rust_web
+```
+
+Application URL:
+
+```text
+http://localhost:3000
 ```
 
 ---
 
-## Check Compilation
+# Frontend
 
-```bash
-cargo check
+The frontend is served automatically by Axum from:
+
+```text
+trust_rust_web/static/
 ```
 
----
-
-## Run Clippy
-
-```bash
-cargo clippy
-```
+No frontend build process is required.
 
 ---
 
 # Environment Variables
 
-Example `.env`:
+Example:
 
 ```env
 RPC_URL=http://127.0.0.1:8545
 
 FACTORY_ADDRESS=0x...
+
 SELLER_ADDRESS=0x70997970c51812dc3a010c7d01b50e0d17dc79c8
 ADMIN_ADDRESS=0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
 BIDDER_ADDRESS=0xa0ee7a142d267c1f36714e4a8f75612f20a79720
@@ -332,114 +386,69 @@ REGISTRY_PAGE_LIMIT=20
 
 ---
 
-# Running the Web Server
+# Development Commands
 
-From the workspace root:
+## Rust
 
-```bash
-cargo run -p trust_rust_web
-```
-
-Server runs at:
-
-```text
-http://localhost:3000
-```
-
----
-
-# Recommended Local Dev Flow
-
-Use three terminals.
-
-## Terminal 1: Hardhat node
+Build:
 
 ```bash
-cd "HH Blockchain node"
-npx hardhat node
+cargo build
 ```
 
-## Terminal 2: Deploy contracts
+Check:
 
 ```bash
-cd "HH Blockchain node"
-npx hardhat run scripts/deploy_factory.js --network localhost
+cargo check
 ```
 
-Copy the deployed factory address into the Rust web server config.
-
-## Terminal 3: Rust web server
+Format:
 
 ```bash
-cargo run -p trust_rust_web
+cargo fmt --all
 ```
 
-Open:
-
-```text
-http://localhost:3000
-```
-
----
-
-# Running Tests
-
-## Solidity Smart Contract Tests
-
-Run all Solidity tests:
+Clippy:
 
 ```bash
-npm test
+cargo clippy
 ```
 
-or:
-
-```bash
-npx hardhat test
-```
-
-These tests cover:
-
-* auction creation
-* registry queries
-* bidding logic
-* pending returns
-* withdraw pattern
-* escrow settlement
-* timeout claims
-* refund handling
-
----
-
-## Rust Integration Tests
-
-Run all Rust tests:
+Run Tests:
 
 ```bash
 cargo test
 ```
 
-Run with output:
+Run Tests With Output:
 
 ```bash
 cargo test -- --nocapture
 ```
 
-Example targeted tests:
+---
+
+## Solidity
+
+Compile:
 
 ```bash
-cargo test test_create_auction_emits_created_event -- --nocapture
-cargo test test_registry_reads_created_auction -- --nocapture
-cargo test test_place_bid_updates_highest_bid -- --nocapture
-cargo test test_escrow_interactive -- --nocapture
+cd "HH Blockchain node"
+
+npx hardhat compile
 ```
 
-Rust integration tests automatically:
+Run Tests:
 
-* create fresh auctions
-* place setup bids
-* manipulate Hardhat blockchain time
-* verify escrow settlement flows
+```bash
+npx hardhat test
+```
+
+Deploy Factory:
+
+```bash
+npx hardhat run scripts/deploy_factory.js --network localhost
+```
 
 ---
 
@@ -447,22 +456,22 @@ Rust integration tests automatically:
 
 ## Authentication
 
-| Method | Endpoint       | Description                         |
-| ------ | -------------- | ----------------------------------- |
-| GET    | `/auth/nonce`  | Generate SIWE nonce                 |
-| POST   | `/auth/verify` | Verify SIWE signature/create session |
-| POST   | `/auth/logout` | Clear active session                |
+| Method | Endpoint       | Description           |
+| ------ | -------------- | --------------------- |
+| GET    | `/auth/nonce`  | Generate nonce        |
+| POST   | `/auth/verify` | Verify SIWE signature |
+| POST   | `/auth/logout` | Destroy session       |
 
 ---
 
 ## Auctions
 
-| Method | Endpoint              | Description     |
-| ------ | --------------------- | --------------- |
-| GET    | `/api/auctions`       | List auctions   |
-| POST   | `/api/create-auction` | Create auction  |
-| POST   | `/api/bid`            | Place bid       |
-| POST   | `/api/withdraw`       | Withdraw refund |
+| Method | Endpoint              | Description               |
+| ------ | --------------------- | ------------------------- |
+| GET    | `/api/auctions`       | List auctions             |
+| POST   | `/api/create-auction` | Create auction            |
+| POST   | `/api/bid`            | Place bid                 |
+| POST   | `/api/withdraw`       | Withdraw refundable funds |
 
 ---
 
@@ -470,7 +479,7 @@ Rust integration tests automatically:
 
 | Method | Endpoint                               | Description          |
 | ------ | -------------------------------------- | -------------------- |
-| GET    | `/api/escrow/status/{auction_address}` | Escrow state         |
+| GET    | `/api/escrow/status/{auction_address}` | Escrow status        |
 | POST   | `/api/escrow/end`                      | End auction          |
 | POST   | `/api/escrow/confirm`                  | Confirm receipt      |
 | POST   | `/api/escrow/claim-timeout`            | Seller timeout claim |
@@ -478,97 +487,93 @@ Rust integration tests automatically:
 
 ---
 
----
-
 # User Flow
 
-## Sign in
+## Sign In
 
-1. Click `Sign In`.
-2. Enter a local Hardhat account address.
-3. Confirm the MetaMask signature.
-4. The navbar displays the wallet pill.
-
-## Log out
-
-Click the green wallet pill in the top-right navbar.
-
-This calls:
-
-```text
-POST /auth/logout
-```
-
-Then the frontend clears local wallet state and reloads the page.
-
-## Create auction
-
-1. Complete the create-auction form.
-2. Submit the form.
-3. The auction is created on-chain.
-4. The auction list refreshes automatically.
-
-## Place bid
-
-1. Select an auction from the bid dropdown or click `Place Bid` on a card.
-2. Enter the bid amount in ETH.
-3. Submit the bid.
-4. The bid transaction is sent on-chain.
-5. The auction list refreshes automatically.
-6. The card updates with the new highest bid.
+1. Click **Sign In**
+2. Enter a Hardhat wallet address
+3. Sign the authentication message
+4. Wallet pill appears in the navigation bar
 
 ---
 
+## Create Auction
+
+1. Complete the auction form
+2. Submit transaction
+3. Auction is deployed on-chain
+4. Auction list refreshes automatically
+
+---
+
+## Place Bid
+
+1. Select auction
+2. Enter bid amount
+3. Submit bid
+4. Transaction executes on-chain
+5. Dashboard refreshes automatically
+
+---
+
+## Withdraw Funds
+
+1. Open withdrawal modal
+2. Confirm withdrawal
+3. Pending returns are withdrawn from escrow
+
+---
 
 # Security Notes
 
-Current implementation is intended for local development/testing.
+Current implementation is intended for:
+
+* Local development
+* Testing
+* Demonstration environments
 
 Production improvements would include:
 
-* persistent session storage
-* HTTPS-only secure cookies
-* Redis/database-backed state
-* session expiration/cleanup
-* CSRF protection for authenticated mutation routes
-* stronger authorization rules
-* rate limiting
-* production Ethereum wallet integration
-* hardened contract audits
+* Secure HTTPS cookies
+* Persistent session storage
+* Redis-backed state
+* Session expiration
+* CSRF protection
+* Rate limiting
+* Production wallet integrations
+* Database persistence
+* Smart contract audits
 
 ---
 
 # Future Improvements
-* WebSocket event subscriptions
+
 * Real-time auction updates
+* WebSocket subscriptions
 * Database persistence
-* Production wallet support
 * IPFS metadata storage
-* Better frontend UX
-* Advanced auction filtering
-* Multi-network deployment support
 * Event indexing
-* Gas snapshot testing
+* Multi-network deployment support
+* Advanced auction filtering
 * Fuzz testing
-* Shared Rust session helper for route modules
+* Gas snapshot testing
+* Enhanced frontend UX
 
 ---
 
 # Learning Goals
 
-This project was originally inspired by a group project written in Python.
-It was later fully refactored and expanded into Rust to explore:
+This project was originally inspired by a Python-based group project and later redesigned in Rust to explore:
 
-* systems programming concepts
-* async Rust
-* backend architecture
-* Ethereum smart contract integration
-* blockchain infrastructure development
-* full-stack Web3 engineering
-* smart contract testing
-* protocol-level escrow design
-* frontend modularization
-* route-level separation of concerns
+* Systems programming
+* Async Rust
+* Backend architecture
+* Ethereum integration
+* Blockchain infrastructure
+* Smart contract development
+* Protocol-level escrow systems
+* Full-stack Web3 engineering
 
 ---
 
