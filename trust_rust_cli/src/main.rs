@@ -68,6 +68,10 @@
  *     - List registered auctions.
  *     - Display auction details and current status.
  *     - Query highest bids and auction deadlines.
+ *no changes added to commit (use "git add" and/or "git commit -a")
+ *
+ * ~/Trust_Rust cli*
+ * ❯ git push -u origin cli
  *
  * [ ] Auction Operations
  *     - Create auctions from the terminal.
@@ -108,8 +112,8 @@
  *
  */
 
-gituse clap::{Parser, Subcommand};
 
+use clap::{Parser, Subcommand};
 #[derive(Debug, Parser)]
 #[command(name = "trust", version, about = "T.R.U.S.T. auction protocol CLI")]
 struct Cli {
