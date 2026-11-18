@@ -1,3 +1,14 @@
 **/test/
 **/tests/
 node_modules
+# Rust build artifacts
+/target/
+**/target/
+
+# Rust backup files
+**/*.rs.bk
+
+# Editor temporary files
+*.swp
+*.swo
+*~

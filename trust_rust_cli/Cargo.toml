@@ -1,0 +1,12 @@
+[package]
+name = "trust_rust_cli"
+version = "0.1.0"
+edition = "2021"
+description = "Command-line interface for the T.R.U.S.T. auction protocol"
+
+[[bin]]
+name = "trust"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
